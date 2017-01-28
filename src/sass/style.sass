@@ -8,6 +8,7 @@ body
 	font-family: "Open Sans"
 
 @mixin ui-button($h: 32px, $p: 10px, $m: 1px)
+	+user-select(none)
 	display: inline-block
 	box-sizing: border-box
 	height: $h
@@ -15,21 +16,40 @@ body
 	cursor: pointer
 	font-size: $h / 2 - 2px
 	margin: $p
+	outline: none
 	&:active
 		margin: ($p + $m) $p ($p - $m) $p
+		outline: none
 
 #ui
 	button
-		+ui-button(256px, 16px, 4px)
-		width: 256px
+		i.fa + span
+			margin-left: 3px
+	button.btn
+		+ui-button(32px, 4px, 1px)
 		background: #fafafa
 		color: #333
 		border: 0px
-		transition: box-shadow 0.3s, background 0.3s, margin 0.1s
+		box-shadow: 1px 1px 1px #ccc
+	button.trigger
+		+ui-button(128px, 16px, 4px)
+		display: block
+		float: left
+		width: 128px
+		background: #fafafa
+		color: #333
+		border: 0px
+		border-radius: 100%
+		transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s
 		box-shadow: 1px 1px 20px #ccc
-		outline: none
-		&:active
-			outline: none
 		&:hover
 			box-shadow: 1px 1px 50px #aaa
 			color: #000
+		&.play.active
+			color: green
+		&.record.active
+			color: red
+	canvas#visual
+		height: 128px
+		width: 1024px
+		border: 1px solid black

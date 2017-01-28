@@ -2338,25 +2338,64 @@ html {
 body {
   font-family: "Open Sans"; }
 
-#ui button {
+#ui button i.fa + span {
+  margin-left: 3px; }
+
+#ui button.btn {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
   display: inline-block;
   box-sizing: border-box;
-  height: 256px;
-  line-height: 224px;
+  height: 32px;
+  line-height: 24px;
   cursor: pointer;
-  font-size: 126px;
-  margin: 16px;
-  width: 256px;
+  font-size: 14px;
+  margin: 4px;
+  outline: none;
   background: #fafafa;
   color: #333;
   border: 0px;
-  transition: box-shadow 0.3s, background 0.3s, margin 0.1s;
-  box-shadow: 1px 1px 20px #ccc;
-  outline: none; }
-  #ui button:active {
-    margin: 20px 16px 12px 16px; }
-  #ui button:active {
+  box-shadow: 1px 1px 1px #ccc; }
+  #ui button.btn:active {
+    margin: 5px 4px 3px 4px;
     outline: none; }
-  #ui button:hover {
+
+#ui button.trigger {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  display: inline-block;
+  box-sizing: border-box;
+  height: 128px;
+  line-height: 96px;
+  cursor: pointer;
+  font-size: 62px;
+  margin: 16px;
+  outline: none;
+  display: block;
+  float: left;
+  width: 128px;
+  background: #fafafa;
+  color: #333;
+  border: 0px;
+  border-radius: 100%;
+  transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s;
+  box-shadow: 1px 1px 20px #ccc; }
+  #ui button.trigger:active {
+    margin: 20px 16px 12px 16px;
+    outline: none; }
+  #ui button.trigger:hover {
     box-shadow: 1px 1px 50px #aaa;
     color: #000; }
+  #ui button.trigger.play.active {
+    color: green; }
+  #ui button.trigger.record.active {
+    color: red; }
+
+#ui canvas#visual {
+  height: 128px;
+  width: 1024px;
+  border: 1px solid black; }

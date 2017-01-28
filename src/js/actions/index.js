@@ -1,18 +1,18 @@
 'use strict';
 
+const obj = require('iblokz/common/obj');
+
 // initial
 const initial = {
-	number: 0
+	audioOn: false,
+	recording: false,
+	playing: false
 };
 
 // actions
-const set = number => state => Object.assign({}, state, {number});
-const incr = () => state => Object.assign({}, state, {number: state.number + 1});
-const decr = () => state => Object.assign({}, state, {number: state.number - 1});
+const toggle = prop => state => obj.patch(state, prop, !state[prop]);
 
 module.exports = {
 	initial,
-	set,
-	incr,
-	decr
+	toggle
 };
