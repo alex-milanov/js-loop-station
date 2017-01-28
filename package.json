@@ -1,0 +1,39 @@
+{
+  "name": "js-loop-station",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "prebuild": "node bin/move-assets.js",
+    "build": "npm run build:js && npm run build:sass",
+    "build:js": "browserify src/js/index.js -o dist/js/app.js",
+    "build:sass": "node-sass --include-path=$(node bin/sass-paths.js) src/sass/style.sass dist/css/style.css",
+    "watch": "npm run watch:js & npm run watch:sass & npm run livereload",
+    "watch:js": "watchify -p browserify-hmr src/js/index.js -o dist/js/app.js",
+    "watch:sass": "npm run build:sass -- --watch src/sass/**/*",
+    "livereload": "livereload dist/**/*.css -d",
+    "start": "npm run build && serve --path dist & npm run watch"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bourbon": "^4.2.7",
+    "bourbon-neat": "^1.8.0",
+    "font-awesome": "^4.7.0",
+    "iblokz": "github:iblokz/iblokz",
+    "rx": "^4.1.0",
+    "snabbdom": "^0.5.4",
+    "superagent": "^3.3.1"
+  },
+  "devDependencies": {
+    "browserify": "^13.1.1",
+    "browserify-hmr": "^0.3.5",
+    "eslint": "^3.12.2",
+    "eslint-config-google": "^0.6.0",
+    "fs-extra": "^1.0.0",
+    "livereload": "^0.6.0",
+    "node-sass": "^4.1.1",
+    "node-serve": "0.0.3",
+    "watchify": "^3.8.0"
+  }
+}
