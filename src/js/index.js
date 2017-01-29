@@ -11,6 +11,9 @@ const arr = require('iblokz/common/arr');
 
 // util
 const a = require('./util/audio');
+const file = require('./util/file');
+const midi = require('./util/midi')();
+const rec = require('./util/recorder');
 const gfx = require('./util/gfx');
 
 // app
@@ -52,6 +55,7 @@ vdom.patchStream(ui$, '#ui');
 let source = {
 	type: 'soundSource',
 	node: null,
+	stream: null,
 	out: []
 };
 
@@ -65,8 +69,6 @@ analyser.connect(a.context.destination);
 
 vca.node.connect(analyser);
 
-let recorder;
-
 state$.distinctUntilChanged(state => state.audio).subscribe(state => {
 	if (state.audio) {
 		navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
@@ -79,5 +81,96 @@ state$.distinctUntilChanged(state => state.audio).subscribe(state => {
 	} else if (source.node) {
 		source.node.disconnect();
 		source.node = null;
+		source.stream = null;
 	}
 });
+
+let buffers = [];
+let recording;
+let blob$ = new Rx.Subject();
+
+blob$
+	.filter(blob => blob !== false)
+	// .map(blob => (console.log({blob}), blob))
+	.flatMap(blob => file.load(blob, 'arrayBuffer'))
+	.map(arrayBuffer => (console.log({arrayBuffer}), arrayBuffer))
+	.subscribe(arrayBuffer =>
+		a.context.decodeAudioData(arrayBuffer).then(buffer => {
+			console.log(buffer);
+			let bufferSource = this.context.createBufferSource();
+			bufferSource.buffer = buffer;
+			bufferSource.loop = true;
+			bufferSource.connect(vca.node);
+			bufferSource.start();
+			buffers.push(bufferSource);
+		}, err => console.log({err, arrayBuffer}))
+	);
+
+state$.distinctUntilChanged(state => state.channels[0].process)
+	.subscribe(state => {
+		if (state.audio) {
+			if (state.channels[0].process === 'record') {
+				console.log(rec.record, source.stream);
+				recording = rec.record(source.stream);
+				recording.data$.subscribe(blob => blob$.onNext(blob));
+			} else if (state.channels[0].process !== 'idle') {
+				recording.stop();
+			}
+		}
+	});
+
+let midiMap = {
+	pads: {
+		60: ['playRec', '0'],
+		61: ['playRec', '1'],
+		62: ['playRec', '2'],
+		63: ['playRec', '3'],
+		64: ['stop', '0'],
+		65: ['stop', '1'],
+		66: ['stop', '2'],
+		67: ['stop', '3']
+	},
+	controller: {
+		24: ['change', '0', 'gain'],
+		25: ['change', '1', 'gain'],
+		26: ['change', '2', 'gain'],
+		27: ['change', '3', 'gain']
+	}
+};
+
+// hook midi signals
+// midi.access$.subscribe(); // data => actions.midiMap.connect(data));
+midi.msg$
+	.map(raw => ({msg: midi.parseMidiMsg(raw.msg), raw}))
+	.filter(data => data.msg.binary !== '11111000') // ignore midi clock for now
+	.map(data => (console.log(`midi: ${data.msg.binary}`, data.msg), data))
+	// .withLatestFrom(state$, (data, state) => ({data, state}))
+	// .subscribe(({data, state}) => {
+	.subscribe(data => {
+		let mmap;
+		let value;
+		switch (data.msg.state) {
+			case 'noteOn':
+				if (data.msg.channel === 10) {
+					mmap = midiMap.pads[data.msg.note.number];
+					// if (data.msg.note.channel !== 10) noteOn(state.instrument, data.msg.note, data.msg.velocity);
+					if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
+						actions[mmap[0]](mmap[1], mmap[2]);
+				}
+				break;
+			case 'noteOff':
+				break;
+			case 'controller':
+				mmap = midiMap.controller[data.msg.controller];
+				console.log({mmap});
+				value = parseFloat(
+					(mmap[4] || 0) + data.msg.value * (mmap[4] || 1) - data.msg.value * (mmap[3] || 0)
+				).toFixed(mmap[5] || 3);
+				value = (mmap[5] === 0) ? parseInt(value, 10) : parseFloat(value);
+				if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
+					actions[mmap[0]](mmap[1], mmap[2], value);
+				break;
+			default:
+				break;
+		}
+	});

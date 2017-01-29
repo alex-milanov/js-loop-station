@@ -9,7 +9,10 @@ module.exports = ({params, chan, actions}) => section('.channel', [
 			dblClick: () => actions.clear(chan)
 		}
 	}, [i('.fa.fa-stop')]),
-	input('.vertical[type="range"]'),
+	input('.vertical[type="range"]', {
+		attrs: {min: 0, max: 1, step: 0.01},
+		props: {value: params.gain}
+	}),
 	button('.play-rec.record', {
 		class: {
 			play: params.process === 'play',
