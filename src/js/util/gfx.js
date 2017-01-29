@@ -1,5 +1,8 @@
 'use strict';
 
+const webAudioBuilder = require('waveform-data/webaudio');
+const audioContext = require('../util/audio').context;
+
 const clear = ctx => ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.width);
 
 const visualize = (analyser, ctx) => {

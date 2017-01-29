@@ -1,7 +1,7 @@
 'use strict';
 
 // dom
-const {section, button, span, h1, i, hr, canvas} = require('iblokz/adapters/vdom');
+const {section, button, span, h1, i, hr, canvas, input} = require('iblokz/adapters/vdom');
 // components
 const counter = require('./counter');
 
@@ -11,20 +11,27 @@ module.exports = ({state, actions}) => section('#ui', [
 		i(({
 			class: {
 				'fa': true,
-				'fa-toggle-on': state.audioOn,
-				'fa-toggle-off': !state.audioOn
+				'fa-toggle-on': state.audio,
+				'fa-toggle-off': !state.audio
 			}
 		})),
 		span('Toggle Audio')
 	]),
 	hr(),
-	button('.trigger.record', {
-		class: {active: state.recording},
-		on: {click: () => actions.toggle('recording')}
-	}, [i('.fa.fa-circle')]),
-	button('.trigger.play', {
-		class: {active: state.playing},
-		on: {click: () => actions.toggle('playing')}
-	}, [i('.fa.fa-play')]),
+	button('.stop', {
+		on: {
+			click: () => actions.stop(),
+			dblClick: () => actions.clear()
+		}
+	}, [i('.fa.fa-stop')]),
+	input('.vertical[type="range"]'),
+	button('.play-rec.record', {
+		class: {
+			play: state.playRec === 'play',
+			record: state.playRec === 'record',
+			overdub: state.playRec === 'overdub'
+		},
+		on: {click: () => actions.playRec()}
+	}, ''),
 	canvas('#visual')
 ]);

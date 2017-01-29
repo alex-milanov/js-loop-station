@@ -57,7 +57,7 @@ let source = {
 
 const vca = a.vca({gain: 0.5});
 
-var analyser = a.context.createAnalyser();
+let analyser = a.context.createAnalyser();
 analyser.minDecibels = -90;
 analyser.maxDecibels = -10;
 analyser.smoothingTimeConstant = 0.85;
@@ -65,12 +65,15 @@ analyser.connect(a.context.destination);
 
 vca.node.connect(analyser);
 
+let recorder;
+
 state$.distinctUntilChanged(state => state.audio).subscribe(state => {
 	if (state.audio) {
 		navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
 			a.disconnect(source, vca);
 			source.node = a.context.createMediaStreamSource(stream);
 			source.node.connect(vca.node);
+			source.stream = stream;
 			gfx.visualize(analyser, document.querySelector('#visual').getContext('2d'));
 		});
 	} else if (source.node) {

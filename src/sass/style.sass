@@ -31,25 +31,70 @@ body
 		color: #333
 		border: 0px
 		box-shadow: 1px 1px 1px #ccc
-	button.trigger
-		+ui-button(128px, 16px, 4px)
+	button.stop
+		+ui-button(64px, 8px, 2px)
 		display: block
 		float: left
-		width: 128px
+		width: 64px
 		background: #fafafa
 		color: #333
 		border: 0px
 		border-radius: 100%
-		transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s
+		transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
+		box-shadow: 1px 1px 10px #ccc
+		opacity: 0.9
+		&:hover
+			box-shadow: 1px 1px 25px #aaa
+			opacity: 1
+	input.vertical
+		-webkit-appearance: none
+		width: 64px
+		height: 4px
+		background-color: #777
+		transform: rotate(-90deg)
+		margin-top: 38px
+		&::-webkit-slider-thumb
+			-webkit-appearance: none
+			background-color: #aaa
+			border: 1px solid #777
+			width: 8px
+			height: 48px
+	button.play-rec
+		+ui-button(128px, 16px, 4px)
+		display: block
+		width: 128px
+		clear: both
+		float: left
+		background: #fafafa
+		background-image: url('../assets/play-rec.png')
+		color: #333
+		border: 0px
+		border-radius: 100%
+		transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
 		box-shadow: 1px 1px 20px #ccc
+		opacity: 0.9
 		&:hover
 			box-shadow: 1px 1px 50px #aaa
-			color: #000
-		&.play.active
-			color: green
-		&.record.active
-			color: red
+			opacity: 1
+		&.play
+			background-image: url('../assets/play-rec-play.png')
+			box-shadow: 1px 1px 20px green
+			&:hover
+				box-shadow: 1px 1px 50px green
+		&.record
+			background-image: url('../assets/play-rec-record.png')
+			box-shadow: 1px 1px 20px red
+			&:hover
+				box-shadow: 1px 1px 50px red
+		&.overdub
+			background-image: url('../assets/play-rec-overdub.png')
+			box-shadow: 1px 1px 20px #FFBF00
+			&:hover
+				box-shadow: 1px 1px 50px #FFBF00
 	canvas#visual
+		display: block
+		clear: both
+		float: left
 		height: 128px
 		width: 1024px
 		border: 1px solid black

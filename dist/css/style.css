@@ -2362,7 +2362,51 @@ body {
     margin: 5px 4px 3px 4px;
     outline: none; }
 
-#ui button.trigger {
+#ui button.stop {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  display: inline-block;
+  box-sizing: border-box;
+  height: 64px;
+  line-height: 48px;
+  cursor: pointer;
+  font-size: 30px;
+  margin: 8px;
+  outline: none;
+  display: block;
+  float: left;
+  width: 64px;
+  background: #fafafa;
+  color: #333;
+  border: 0px;
+  border-radius: 100%;
+  transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s;
+  box-shadow: 1px 1px 10px #ccc;
+  opacity: 0.9; }
+  #ui button.stop:active {
+    margin: 10px 8px 6px 8px;
+    outline: none; }
+  #ui button.stop:hover {
+    box-shadow: 1px 1px 25px #aaa;
+    opacity: 1; }
+
+#ui input.vertical {
+  -webkit-appearance: none;
+  width: 64px;
+  height: 4px;
+  background-color: #777;
+  transform: rotate(-90deg);
+  margin-top: 38px; }
+  #ui input.vertical::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    background-color: #aaa;
+    border: 1px solid #777;
+    width: 8px;
+    height: 48px; }
+
+#ui button.play-rec {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
@@ -2376,26 +2420,43 @@ body {
   margin: 16px;
   outline: none;
   display: block;
-  float: left;
   width: 128px;
+  clear: both;
+  float: left;
   background: #fafafa;
+  background-image: url("../assets/play-rec.png");
   color: #333;
   border: 0px;
   border-radius: 100%;
-  transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s;
-  box-shadow: 1px 1px 20px #ccc; }
-  #ui button.trigger:active {
+  transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s;
+  box-shadow: 1px 1px 20px #ccc;
+  opacity: 0.9; }
+  #ui button.play-rec:active {
     margin: 20px 16px 12px 16px;
     outline: none; }
-  #ui button.trigger:hover {
+  #ui button.play-rec:hover {
     box-shadow: 1px 1px 50px #aaa;
-    color: #000; }
-  #ui button.trigger.play.active {
-    color: green; }
-  #ui button.trigger.record.active {
-    color: red; }
+    opacity: 1; }
+  #ui button.play-rec.play {
+    background-image: url("../assets/play-rec-play.png");
+    box-shadow: 1px 1px 20px green; }
+    #ui button.play-rec.play:hover {
+      box-shadow: 1px 1px 50px green; }
+  #ui button.play-rec.record {
+    background-image: url("../assets/play-rec-record.png");
+    box-shadow: 1px 1px 20px red; }
+    #ui button.play-rec.record:hover {
+      box-shadow: 1px 1px 50px red; }
+  #ui button.play-rec.overdub {
+    background-image: url("../assets/play-rec-overdub.png");
+    box-shadow: 1px 1px 20px #FFBF00; }
+    #ui button.play-rec.overdub:hover {
+      box-shadow: 1px 1px 50px #FFBF00; }
 
 #ui canvas#visual {
+  display: block;
+  clear: both;
+  float: left;
   height: 128px;
   width: 1024px;
   border: 1px solid black; }

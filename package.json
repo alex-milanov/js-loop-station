@@ -23,7 +23,8 @@
     "iblokz": "github:iblokz/iblokz",
     "rx": "^4.1.0",
     "snabbdom": "^0.5.4",
-    "superagent": "^3.3.1"
+    "superagent": "^3.3.1",
+    "waveform-data": "^2.0.0"
   },
   "devDependencies": {
     "browserify": "^13.1.1",
