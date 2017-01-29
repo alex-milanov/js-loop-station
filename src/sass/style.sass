@@ -1,11 +1,12 @@
 @import url(//fonts.googleapis.com/css?family=Open+Sans)
+@import url(//fonts.googleapis.com/css?family=Lobster)
 
 @import 'font-awesome'
 @import 'bourbon'
 @import 'neat'
 
 body
-	font-family: "Open Sans"
+	font-family: 'Open Sans'
 
 @mixin ui-button($h: 32px, $p: 10px, $m: 1px)
 	+user-select(none)
@@ -21,80 +22,107 @@ body
 		margin: ($p + $m) $p ($p - $m) $p
 		outline: none
 
+
+button
+	i.fa + span
+		margin-left: 3px
+
 #ui
-	button
-		i.fa + span
-			margin-left: 3px
-	button.btn
-		+ui-button(32px, 4px, 1px)
-		background: #fafafa
-		color: #333
-		border: 0px
-		box-shadow: 1px 1px 1px #ccc
-	button.stop
-		+ui-button(64px, 8px, 2px)
+	header
 		display: block
-		float: left
-		width: 64px
-		background: #fafafa
-		color: #333
-		border: 0px
-		border-radius: 100%
-		transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
-		box-shadow: 1px 1px 10px #ccc
-		opacity: 0.9
-		&:hover
-			box-shadow: 1px 1px 25px #aaa
-			opacity: 1
-	input.vertical
-		-webkit-appearance: none
-		width: 64px
-		height: 4px
-		background-color: #777
-		transform: rotate(-90deg)
-		margin-top: 38px
-		&::-webkit-slider-thumb
-			-webkit-appearance: none
-			background-color: #aaa
-			border: 1px solid #777
-			width: 8px
-			height: 48px
-	button.play-rec
-		+ui-button(128px, 16px, 4px)
-		display: block
-		width: 128px
-		clear: both
-		float: left
-		background: #fafafa
-		background-image: url('../assets/play-rec.png')
-		color: #333
-		border: 0px
-		border-radius: 100%
-		transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
-		box-shadow: 1px 1px 20px #ccc
-		opacity: 0.9
-		&:hover
-			box-shadow: 1px 1px 50px #aaa
-			opacity: 1
-		&.play
-			background-image: url('../assets/play-rec-play.png')
-			box-shadow: 1px 1px 20px green
-			&:hover
-				box-shadow: 1px 1px 50px green
-		&.record
-			background-image: url('../assets/play-rec-record.png')
-			box-shadow: 1px 1px 20px red
-			&:hover
-				box-shadow: 1px 1px 50px red
-		&.overdub
-			background-image: url('../assets/play-rec-overdub.png')
-			box-shadow: 1px 1px 20px #FFBF00
-			&:hover
-				box-shadow: 1px 1px 50px #FFBF00
+		margin: 30px 10px
+		width: 764px
+		height: 42px
+		line-height: 42px
+		vertical-align: middle
+		h1
+			margin: 0px
+			font-size: 42px
+			font-family: 'Lobster'
+			font-weight: 400
+			float: left
+		.toggle-audio
+			+ui-button(26px, 2px, 1px)
+			background: #fafafa
+			color: #333
+			border: 0px
+			font-size: 14px
+			border-radius: 10px
+			box-shadow: 1px 1px 1px #ccc
+			float: right
 	canvas#visual
 		display: block
 		clear: both
 		float: left
-		height: 128px
-		width: 1024px
-		border: 1px solid black
+		height: 160px
+		width: 764px
+		box-shadow: 1px 1px 10px #ccc
+		margin: 10px
+	.channels
+		display: block
+		clear: both
+		.channel
+			width: 176px
+			display: inline-block
+			box-shadow: 1px 1px 10px #ccc
+			margin: 10px
+			button.stop
+				+ui-button(64px, 16px, 2px)
+				display: block
+				float: left
+				width: 64px
+				background: #fafafa
+				color: #333
+				border: 0px
+				border-radius: 100%
+				transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
+				box-shadow: 1px 1px 10px #ccc
+				opacity: 0.9
+				&:hover
+					box-shadow: 1px 1px 25px #aaa
+					opacity: 1
+			input.vertical
+				-webkit-appearance: none
+				width: 64px
+				height: 4px
+				background-color: #777
+				transform: rotate(-90deg)
+				margin-top: 38px
+				&::-webkit-slider-thumb
+					-webkit-appearance: none
+					background-color: #aaa
+					border: 1px solid #777
+					width: 8px
+					height: 48px
+			button.play-rec
+				+ui-button(128px, 16px, 4px)
+				display: block
+				width: 128px
+				clear: both
+				float: left
+				background: #fafafa
+				background-image: url('../assets/play-rec.png')
+				color: #333
+				border: 0px
+				border-radius: 100%
+				transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
+				box-shadow: 1px 1px 20px #ccc
+				opacity: 0.9
+				&:hover
+					box-shadow: 1px 1px 50px #aaa
+					opacity: 1
+				&.play
+					background-image: url('../assets/play-rec-play.png')
+					box-shadow: 1px 1px 20px green
+					&:hover
+						box-shadow: 1px 1px 50px green
+				&.record
+					background-image: url('../assets/play-rec-record.png')
+					box-shadow: 1px 1px 20px red
+					&:hover
+						box-shadow: 1px 1px 50px red
+				&.overdub
+					background-image: url('../assets/play-rec-overdub.png')
+					box-shadow: 1px 1px 20px #FFBF00
+					&:hover
+						box-shadow: 1px 1px 50px #FFBF00

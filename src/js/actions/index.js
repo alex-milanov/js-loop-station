@@ -5,24 +5,36 @@ const obj = require('iblokz/common/obj');
 // initial
 const initial = {
 	audioOn: false,
-	playRec: 'idle'
+	channels: {
+		0: {process: 'idle', gain: 0.5, layers: 0},
+		1: {process: 'idle', gain: 0.5, layers: 0},
+		2: {process: 'idle', gain: 0.5, layers: 0},
+		4: {process: 'idle', gain: 0.5, layers: 0}
+	}
 };
 
 // actions
-const toggle = prop => state => obj.patch(state, prop, !state[prop]);
-const playRec = () => state => obj.patch(state, 'playRec',
-	(state.playRec === 'idle' || state.playRec === 'play')
-		? 'record'
-		: (state.playRec === 'record')
+const toggle = path => state => obj.patch(state, path, !obj.sub(state, path));
+const change = (channel, param, value) => state => obj.patch(state, ['channels', channel, param], value);
+
+const playRec = channel => state => obj.patch(state, ['channels', channel, 'process'],
+	(state.channels[channel].process === 'idle')
+		? (state.channels[channel].layers === 0) ? 'record' : 'play'
+		: (state.channels[channel].process === 'record' || state.channels[channel].process === 'play')
 			? 'overdub' : 'play'
 );
-const stop = () => state => obj.patch(state, 'playRec', 'idle');
-const clear = () => state => state;
+const stop = channel => state => obj.patch(state, ['channels', channel, 'process'], 'idle');
+
+// layers
+const addLayer = channel =>
+	state => obj.patch(state, ['channels', channel, 'layers'], state.channels[channel].layers + 1);
+const clear = channel => state => obj.patch(state, ['channels', channel, 'layers'], 0);
 
 module.exports = {
 	initial,
 	toggle,
 	playRec,
 	stop,
+	addLayer,
 	clear
 };

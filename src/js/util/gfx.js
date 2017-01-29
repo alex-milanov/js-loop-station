@@ -8,6 +8,9 @@ const clear = ctx => ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.width);
 const visualize = (analyser, ctx) => {
 	const visualSetting = 'sinewave';
 
+	ctx.canvas.width = ctx.canvas.offsetWidth;
+	ctx.canvas.height = ctx.canvas.offsetHeight;
+
 	if (visualSetting === "sinewave") {
 		analyser.fftSize = 2048;
 		let bufferLength = analyser.fftSize;
@@ -21,7 +24,7 @@ const visualize = (analyser, ctx) => {
 
 			analyser.getByteTimeDomainData(dataArray);
 
-			ctx.fillStyle = 'rgb(200, 200, 200)';
+			ctx.fillStyle = 'rgb(256, 256, 256)';
 			ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
 			ctx.lineWidth = 2;
