@@ -97,7 +97,7 @@ blob$
 	.subscribe(arrayBuffer =>
 		a.context.decodeAudioData(arrayBuffer).then(buffer => {
 			console.log(buffer);
-			let bufferSource = this.context.createBufferSource();
+			let bufferSource = a.context.createBufferSource();
 			bufferSource.buffer = buffer;
 			bufferSource.loop = true;
 			bufferSource.connect(vca.node);
@@ -109,12 +109,29 @@ blob$
 state$.distinctUntilChanged(state => state.channels[0].process)
 	.subscribe(state => {
 		if (state.audio) {
-			if (state.channels[0].process === 'record') {
+			if (state.channels[0].process === 'record' || state.channels[0].process === 'overdub') {
 				console.log(rec.record, source.stream);
 				recording = rec.record(source.stream);
 				recording.data$.subscribe(blob => blob$.onNext(blob));
-			} else if (state.channels[0].process !== 'idle') {
-				recording.stop();
+			} else if (state.channels[0].process === 'play') {
+				if (recording) {
+					recording.stop();
+					recording = null;
+				}
+				buffers = buffers.map(old => {
+					old.stop();
+					let bufferSource = a.context.createBufferSource();
+					bufferSource.buffer = old.buffer;
+					bufferSource.loop = true;
+					bufferSource.connect(vca.node);
+					bufferSource.start();
+					return bufferSource;
+				});
+			} else {
+				// stop`
+				buffers.forEach(bufferSource => bufferSource.stop());
+				if (state.channels[0].process === 'empty')
+					buffers = [];
 			}
 		}
 	});
@@ -140,7 +157,8 @@ let midiMap = {
 
 // hook midi signals
 // midi.access$.subscribe(); // data => actions.midiMap.connect(data));
-midi.msg$
+
+if (midi) midi.msg$
 	.map(raw => ({msg: midi.parseMidiMsg(raw.msg), raw}))
 	.filter(data => data.msg.binary !== '11111000') // ignore midi clock for now
 	.map(data => (console.log(`midi: ${data.msg.binary}`, data.msg), data))

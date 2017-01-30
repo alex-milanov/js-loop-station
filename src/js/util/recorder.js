@@ -5,7 +5,9 @@ const Rx = require('rx');
 const $ = Rx.Observable;
 
 const record = stream => {
-	let mediaRecorder = new window.MediaRecorder(stream, {mimeType: 'audio/webm\;codecs=opus', audioBitsPerSecond: 128000});
+	// let mediaRecorder = new window.MediaRecorder(stream);
+	let mediaRecorder = new window.VorbisMediaRecorder(stream, {audioBitsPerSecond: 32000});
+	// mediaRecorder.mimeType = 'audio/ogg';
 	let chunks = [];
 	mediaRecorder.start();
 
@@ -17,7 +19,7 @@ const record = stream => {
 	};
 
 	mediaRecorder.onstop = () => {
-		data$.onNext(chunks.length === 1 ? chunks[0] : new Blob(chunks, {type: 'audio/ogg; codecs=opus'}));
+		data$.onNext(chunks.length === 1 ? chunks[0] : new Blob(chunks, {type: chunks[0].type}));
 	};
 
 	return {

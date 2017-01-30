@@ -6,7 +6,7 @@ module.exports = ({params, chan, actions}) => section('.channel', [
 	button('.stop', {
 		on: {
 			click: () => actions.stop(chan),
-			dblClick: () => actions.clear(chan)
+			dblclick: () => actions.clear(chan)
 		}
 	}, [i('.fa.fa-stop')]),
 	input('.vertical[type="range"]', {

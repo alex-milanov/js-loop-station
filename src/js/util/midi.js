@@ -100,6 +100,9 @@ const parseAccess = access => {
 };
 
 const init = () => {
+	if (!navigator.requestMIDIAccess)
+		return false;
+
 	const access$ = $.fromPromise(navigator.requestMIDIAccess())
 		.flatMap(access => $.create(stream => {
 			access.onstatechange = connection => stream.onNext(connection.currentTarget);

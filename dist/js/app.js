@@ -31897,37 +31897,36 @@ const obj = require('iblokz/common/obj');
 const initial = {
 	audioOn: false,
 	channels: {
-		0: {process: 'idle', gain: 0.5, layers: 0},
-		1: {process: 'idle', gain: 0.5, layers: 0},
-		2: {process: 'idle', gain: 0.5, layers: 0},
-		3: {process: 'idle', gain: 0.5, layers: 0}
+		0: {process: 'empty', gain: 0.5, layers: 0},
+		1: {process: 'empty', gain: 0.5, layers: 0},
+		2: {process: 'empty', gain: 0.5, layers: 0},
+		3: {process: 'empty', gain: 0.5, layers: 0}
 	}
 };
 
 // actions
 const toggle = path => state => obj.patch(state, path, !obj.sub(state, path));
 const change = (channel, param, value) => state => obj.patch(state, ['channels', channel, param], value);
-/*
+
 const playRec = channel => state => obj.patch(state, ['channels', channel, 'process'],
-	(state.channels[channel].process === 'idle')
-		? (state.channels[channel].layers === 0) ? 'record' : 'play'
-		: (state.channels[channel].process === 'record' || state.channels[channel].process === 'play')
+	(state.channels[channel].process === 'empty') ? 'record'
+		: (state.channels[channel].process === 'play')
 			? 'overdub' : 'play'
 );
-*/
 
+/*
 const playRec = channel => state => obj.patch(state, ['channels', channel, 'process'],
 	(state.channels[channel].process === 'idle' || state.channels[channel].process === 'play')
 		? 'record'
 		: 'play'
 );
+*/
 
 const stop = channel => state => obj.patch(state, ['channels', channel, 'process'], 'idle');
 
 // layers
-const addLayer = channel =>
-	state => obj.patch(state, ['channels', channel, 'layers'], state.channels[channel].layers + 1);
-const clear = channel => state => obj.patch(state, ['channels', channel, 'layers'], 0);
+
+const clear = channel => state => obj.patch(state, ['channels', channel, 'process'], 'empty');
 
 module.exports = {
 	initial,
@@ -31935,7 +31934,6 @@ module.exports = {
 	change,
 	playRec,
 	stop,
-	addLayer,
 	clear
 };
 
@@ -32039,7 +32037,7 @@ blob$
 	.subscribe(arrayBuffer =>
 		a.context.decodeAudioData(arrayBuffer).then(buffer => {
 			console.log(buffer);
-			let bufferSource = this.context.createBufferSource();
+			let bufferSource = a.context.createBufferSource();
 			bufferSource.buffer = buffer;
 			bufferSource.loop = true;
 			bufferSource.connect(vca.node);
@@ -32051,12 +32049,29 @@ blob$
 state$.distinctUntilChanged(state => state.channels[0].process)
 	.subscribe(state => {
 		if (state.audio) {
-			if (state.channels[0].process === 'record') {
+			if (state.channels[0].process === 'record' || state.channels[0].process === 'overdub') {
 				console.log(rec.record, source.stream);
 				recording = rec.record(source.stream);
 				recording.data$.subscribe(blob => blob$.onNext(blob));
-			} else if (state.channels[0].process !== 'idle') {
-				recording.stop();
+			} else if (state.channels[0].process === 'play') {
+				if (recording) {
+					recording.stop();
+					recording = null;
+				}
+				buffers = buffers.map(old => {
+					old.stop();
+					let bufferSource = a.context.createBufferSource();
+					bufferSource.buffer = old.buffer;
+					bufferSource.loop = true;
+					bufferSource.connect(vca.node);
+					bufferSource.start();
+					return bufferSource;
+				});
+			} else {
+				// stop`
+				buffers.forEach(bufferSource => bufferSource.stop());
+				if (state.channels[0].process === 'empty')
+					buffers = [];
 			}
 		}
 	});
@@ -32082,7 +32097,8 @@ let midiMap = {
 
 // hook midi signals
 // midi.access$.subscribe(); // data => actions.midiMap.connect(data));
-midi.msg$
+
+if (midi) midi.msg$
 	.map(raw => ({msg: midi.parseMidiMsg(raw.msg), raw}))
 	.filter(data => data.msg.binary !== '11111000') // ignore midi clock for now
 	.map(data => (console.log(`midi: ${data.msg.binary}`, data.msg), data))
@@ -32126,7 +32142,7 @@ module.exports = ({params, chan, actions}) => section('.channel', [
 	button('.stop', {
 		on: {
 			click: () => actions.stop(chan),
-			dblClick: () => actions.clear(chan)
+			dblclick: () => actions.clear(chan)
 		}
 	}, [i('.fa.fa-stop')]),
 	input('.vertical[type="range"]', {
@@ -32585,6 +32601,9 @@ const parseAccess = access => {
 };
 
 const init = () => {
+	if (!navigator.requestMIDIAccess)
+		return false;
+
 	const access$ = $.fromPromise(navigator.requestMIDIAccess())
 		.flatMap(access => $.create(stream => {
 			access.onstatechange = connection => stream.onNext(connection.currentTarget);
@@ -32621,7 +32640,9 @@ const Rx = require('rx');
 const $ = Rx.Observable;
 
 const record = stream => {
-	let mediaRecorder = new window.MediaRecorder(stream, {mimeType: 'audio/webm\;codecs=opus', audioBitsPerSecond: 128000});
+	// let mediaRecorder = new window.MediaRecorder(stream);
+	let mediaRecorder = new window.VorbisMediaRecorder(stream, {audioBitsPerSecond: 32000});
+	// mediaRecorder.mimeType = 'audio/ogg';
 	let chunks = [];
 	mediaRecorder.start();
 
@@ -32633,7 +32654,7 @@ const record = stream => {
 	};
 
 	mediaRecorder.onstop = () => {
-		data$.onNext(chunks.length === 1 ? chunks[0] : new Blob(chunks, {type: 'audio/ogg; codecs=opus'}));
+		data$.onNext(chunks.length === 1 ? chunks[0] : new Blob(chunks, {type: chunks[0].type}));
 	};
 
 	return {
