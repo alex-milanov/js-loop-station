@@ -32025,16 +32025,16 @@ state$.distinctUntilChanged(state => state.audio).subscribe(state => {
 	}
 });
 
-let buffers = [];
-let recording;
+let buffers = {};
+let recording = {};
 let blob$ = new Rx.Subject();
 
 blob$
-	.filter(blob => blob !== false)
+	.filter(({blob}) => blob !== false)
 	// .map(blob => (console.log({blob}), blob))
-	.flatMap(blob => file.load(blob, 'arrayBuffer'))
-	.map(arrayBuffer => (console.log({arrayBuffer}), arrayBuffer))
-	.subscribe(arrayBuffer =>
+	.flatMap(({channel, blob}) => file.load(blob, 'arrayBuffer').map(arrayBuffer => ({channel, arrayBuffer})))
+	// .map(arrayBuffer => (console.log({arrayBuffer}), arrayBuffer))
+	.subscribe(({channel, arrayBuffer}) =>
 		a.context.decodeAudioData(arrayBuffer).then(buffer => {
 			console.log(buffer);
 			let bufferSource = a.context.createBufferSource();
@@ -32042,39 +32042,42 @@ blob$
 			bufferSource.loop = true;
 			bufferSource.connect(vca.node);
 			bufferSource.start();
-			buffers.push(bufferSource);
+			if (!buffers[channel]) buffers[channel] = [];
+			buffers[channel].push(bufferSource);
 		}, err => console.log({err, arrayBuffer}))
 	);
 
-state$.distinctUntilChanged(state => state.channels[0].process)
-	.subscribe(state => {
-		if (state.audio) {
-			if (state.channels[0].process === 'record' || state.channels[0].process === 'overdub') {
-				console.log(rec.record, source.stream);
-				recording = rec.record(source.stream);
-				recording.data$.subscribe(blob => blob$.onNext(blob));
-			} else if (state.channels[0].process === 'play') {
-				if (recording) {
-					recording.stop();
-					recording = null;
+[0, 1, 2, 3].map(channel =>
+	state$.distinctUntilChanged(state => state.channels[channel].process)
+		.subscribe(state => {
+			if (state.audio) {
+				if (state.channels[channel].process === 'record' || state.channels[channel].process === 'overdub') {
+					console.log(rec.record, source.stream);
+					recording[channel] = rec.record(source.stream);
+					recording[channel].data$.subscribe(blob => blob$.onNext({blob, channel}));
+				} else if (state.channels[channel].process === 'play') {
+					if (recording[channel]) {
+						recording[channel].stop();
+						recording[channel] = null;
+					}
+					if (buffers[channel]) buffers[channel] = buffers[channel].map(old => {
+						old.stop();
+						let bufferSource = a.context.createBufferSource();
+						bufferSource.buffer = old.buffer;
+						bufferSource.loop = true;
+						bufferSource.connect(vca.node);
+						bufferSource.start();
+						return bufferSource;
+					});
+				} else {
+					// stop`
+					if (buffers[channel]) buffers[channel].forEach(bufferSource => bufferSource.stop());
+					if (state.channels[channel].process === 'empty')
+						buffers[channel] = [];
 				}
-				buffers = buffers.map(old => {
-					old.stop();
-					let bufferSource = a.context.createBufferSource();
-					bufferSource.buffer = old.buffer;
-					bufferSource.loop = true;
-					bufferSource.connect(vca.node);
-					bufferSource.start();
-					return bufferSource;
-				});
-			} else {
-				// stop`
-				buffers.forEach(bufferSource => bufferSource.stop());
-				if (state.channels[0].process === 'empty')
-					buffers = [];
 			}
-		}
-	});
+		})
+	);
 
 let midiMap = {
 	pads: {
