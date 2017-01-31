@@ -113,7 +113,7 @@ blob$
 			if (state.audio) {
 				if (state.channels[channel].process === 'record' || state.channels[channel].process === 'overdub') {
 					console.log(rec.record, source.stream);
-					recording[channel] = rec.record(source.stream);
+					recording[channel] = rec.record(source.stream, a.context);
 					recording[channel].data$.subscribe(blob => blob$.onNext({blob, channel}));
 				} else if (state.channels[channel].process === 'play') {
 					if (recording[channel]) {
