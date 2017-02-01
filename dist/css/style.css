@@ -2339,6 +2339,15 @@ html {
 body {
   font-family: 'Open Sans'; }
 
+.left {
+  float: left; }
+
+.right {
+  float: right; }
+
+.clear {
+  clear: both; }
+
 button i.fa + span {
   margin-left: 3px; }
 
@@ -2355,7 +2364,7 @@ button i.fa + span {
     font-family: 'Lobster';
     font-weight: 400;
     float: left; }
-  #ui header .toggle-audio {
+  #ui header .toggle {
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -2368,16 +2377,35 @@ button i.fa + span {
     font-size: 11px;
     margin: 2px;
     outline: none;
+    min-width: 26px;
+    font-size: 14px;
     background: #fafafa;
     color: #333;
     border: 0px;
-    font-size: 14px;
     border-radius: 10px;
     box-shadow: 1px 1px 1px #ccc;
     float: right; }
-    #ui header .toggle-audio:active {
+    #ui header .toggle:active {
       margin: 3px 2px 1px 2px;
       outline: none; }
+    #ui header .toggle.big {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      display: inline-block;
+      box-sizing: border-box;
+      height: 32px;
+      line-height: 28px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 2px;
+      outline: none;
+      min-width: 32px;
+      font-size: 22px; }
+      #ui header .toggle.big:active {
+        margin: 3px 2px 1px 2px;
+        outline: none; }
 
 #ui canvas#visual {
   display: block;

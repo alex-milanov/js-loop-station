@@ -8,7 +8,16 @@ const channel = require('./channel');
 module.exports = ({state, actions}) => section('#ui', [
 	header([
 		h1('JS Loop Station'),
-		button('.toggle-audio', {on: {click: () => actions.toggle('audio')}}, [
+		button('.toggle.big[title="Monitor On/Off"]', {on: {click: () => actions.toggle('mic')}}, [
+			i(({
+				class: {
+					'fa': true,
+					'fa-microphone': state.mic,
+					'fa-microphone-slash': !state.mic
+				}
+			}))
+		]),
+		button('.toggle[title="Audio Input On/Off"]', {on: {click: () => actions.toggle('audio')}}, [
 			i(({
 				class: {
 					'fa': true,
@@ -16,7 +25,7 @@ module.exports = ({state, actions}) => section('#ui', [
 					'fa-toggle-off': !state.audio
 				}
 			})),
-			span('Toggle Audio')
+			span('Audio Input')
 		])
 	]),
 	section('.channels',

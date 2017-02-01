@@ -74,7 +74,7 @@ state$.distinctUntilChanged(state => state.audio).subscribe(state => {
 		navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
 			a.disconnect(source, vca);
 			source.node = a.context.createMediaStreamSource(stream);
-			source.node.connect(vca.node);
+			if (state.mic) source.node.connect(vca.node);
 			source.stream = stream;
 			gfx.visualize(analyser, document.querySelector('#visual').getContext('2d'));
 		});
@@ -83,6 +83,11 @@ state$.distinctUntilChanged(state => state.audio).subscribe(state => {
 		source.node = null;
 		source.stream = null;
 	}
+});
+
+state$.distinctUntilChanged(state => state.mic).subscribe(state => {
+	if (state.mic) source.node.connect(vca.node);
+	else if (source.node) source.node.disconnect();
 });
 
 let buffers = {};

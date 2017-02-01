@@ -31909,9 +31909,11 @@ const toggle = path => state => obj.patch(state, path, !obj.sub(state, path));
 const change = (channel, param, value) => state => obj.patch(state, ['channels', channel, param], value);
 
 const playRec = channel => state => obj.patch(state, ['channels', channel, 'process'],
-	(state.channels[channel].process === 'empty') ? 'record'
-		: (state.channels[channel].process === 'play')
-			? 'overdub' : 'play'
+	(state.audio)
+		? (state.channels[channel].process === 'empty') ? 'record'
+			: (state.channels[channel].process === 'play')
+				? 'overdub' : 'play'
+		: state.channels[channel].process
 );
 
 /*
@@ -31922,7 +31924,11 @@ const playRec = channel => state => obj.patch(state, ['channels', channel, 'proc
 );
 */
 
-const stop = channel => state => obj.patch(state, ['channels', channel, 'process'], 'idle');
+const stop = channel => state => obj.patch(state, ['channels', channel, 'process'],
+	(state.channels[channel].process !== 'empty')
+		?	'idle'
+		: 'empty'
+);
 
 // layers
 
@@ -32014,7 +32020,7 @@ state$.distinctUntilChanged(state => state.audio).subscribe(state => {
 		navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
 			a.disconnect(source, vca);
 			source.node = a.context.createMediaStreamSource(stream);
-			source.node.connect(vca.node);
+			if (state.mic) source.node.connect(vca.node);
 			source.stream = stream;
 			gfx.visualize(analyser, document.querySelector('#visual').getContext('2d'));
 		});
@@ -32023,6 +32029,11 @@ state$.distinctUntilChanged(state => state.audio).subscribe(state => {
 		source.node = null;
 		source.stream = null;
 	}
+});
+
+state$.distinctUntilChanged(state => state.mic).subscribe(state => {
+	if (state.mic) source.node.connect(vca.node);
+	else if (source.node) source.node.disconnect();
 });
 
 let buffers = {};
@@ -32173,7 +32184,16 @@ const channel = require('./channel');
 module.exports = ({state, actions}) => section('#ui', [
 	header([
 		h1('JS Loop Station'),
-		button('.toggle-audio', {on: {click: () => actions.toggle('audio')}}, [
+		button('.toggle.big[title="Monitor On/Off"]', {on: {click: () => actions.toggle('mic')}}, [
+			i(({
+				class: {
+					'fa': true,
+					'fa-microphone': state.mic,
+					'fa-microphone-slash': !state.mic
+				}
+			}))
+		]),
+		button('.toggle[title="Audio Input On/Off"]', {on: {click: () => actions.toggle('audio')}}, [
 			i(({
 				class: {
 					'fa': true,
@@ -32181,7 +32201,7 @@ module.exports = ({state, actions}) => section('#ui', [
 					'fa-toggle-off': !state.audio
 				}
 			})),
-			span('Toggle Audio')
+			span('Audio Input')
 		])
 	]),
 	section('.channels',

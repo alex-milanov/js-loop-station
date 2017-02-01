@@ -18,9 +18,11 @@ const toggle = path => state => obj.patch(state, path, !obj.sub(state, path));
 const change = (channel, param, value) => state => obj.patch(state, ['channels', channel, param], value);
 
 const playRec = channel => state => obj.patch(state, ['channels', channel, 'process'],
-	(state.channels[channel].process === 'empty') ? 'record'
-		: (state.channels[channel].process === 'play')
-			? 'overdub' : 'play'
+	(state.audio)
+		? (state.channels[channel].process === 'empty') ? 'record'
+			: (state.channels[channel].process === 'play')
+				? 'overdub' : 'play'
+		: state.channels[channel].process
 );
 
 /*
@@ -31,7 +33,11 @@ const playRec = channel => state => obj.patch(state, ['channels', channel, 'proc
 );
 */
 
-const stop = channel => state => obj.patch(state, ['channels', channel, 'process'], 'idle');
+const stop = channel => state => obj.patch(state, ['channels', channel, 'process'],
+	(state.channels[channel].process !== 'empty')
+		?	'idle'
+		: 'empty'
+);
 
 // layers
 

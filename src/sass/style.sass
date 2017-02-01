@@ -22,6 +22,12 @@ body
 		margin: ($p + $m) $p ($p - $m) $p
 		outline: none
 
+.left
+	float: left
+.right
+	float: right
+.clear
+	clear: both
 
 button
 	i.fa + span
@@ -41,12 +47,17 @@ button
 			font-family: 'Lobster'
 			font-weight: 400
 			float: left
-		.toggle-audio
+		.toggle
 			+ui-button(26px, 2px, 1px)
+			min-width: 26px
+			font-size: 14px
+			&.big
+				+ui-button(32px, 2px, 1px)
+				min-width: 32px
+				font-size: 22px
 			background: #fafafa
 			color: #333
 			border: 0px
-			font-size: 14px
 			border-radius: 10px
 			box-shadow: 1px 1px 1px #ccc
 			float: right
