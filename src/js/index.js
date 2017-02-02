@@ -159,7 +159,8 @@ let midiMap = {
 		24: ['change', '0', 'gain'],
 		25: ['change', '1', 'gain'],
 		26: ['change', '2', 'gain'],
-		27: ['change', '3', 'gain']
+		27: ['change', '3', 'gain'],
+		64: ['playRec']
 	}
 };
 
@@ -170,14 +171,14 @@ if (midi) midi.msg$
 	.map(raw => ({msg: midi.parseMidiMsg(raw.msg), raw}))
 	.filter(data => data.msg.binary !== '11111000') // ignore midi clock for now
 	.map(data => (console.log(`midi: ${data.msg.binary}`, data.msg), data))
-	// .withLatestFrom(state$, (data, state) => ({data, state}))
-	// .subscribe(({data, state}) => {
-	.subscribe(data => {
+	.withLatestFrom(state$, (data, state) => ({data, state}))
+	.subscribe(({data, state}) => {
+	// .subscribe(data => {
 		let mmap;
 		let value;
 		switch (data.msg.state) {
 			case 'noteOn':
-				if (data.msg.channel === 10) {
+				if (midiMap.pads[data.msg.note.number] && data.msg.channel === 10) {
 					mmap = midiMap.pads[data.msg.note.number];
 					// if (data.msg.note.channel !== 10) noteOn(state.instrument, data.msg.note, data.msg.velocity);
 					if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
@@ -187,14 +188,19 @@ if (midi) midi.msg$
 			case 'noteOff':
 				break;
 			case 'controller':
-				mmap = midiMap.controller[data.msg.controller];
-				console.log({mmap});
-				value = parseFloat(
-					(mmap[4] || 0) + data.msg.value * (mmap[4] || 1) - data.msg.value * (mmap[3] || 0)
-				).toFixed(mmap[5] || 3);
-				value = (mmap[5] === 0) ? parseInt(value, 10) : parseFloat(value);
-				if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
-					actions[mmap[0]](mmap[1], mmap[2], value);
+				if (midiMap.controller[data.msg.controller]) {
+					mmap = midiMap.controller[data.msg.controller];
+					if (mmap[0] === 'playRec') {
+						if (data.msg.value === 1) actions.playRec(state.lastAffected);
+					} else {
+						value = parseFloat(
+							(mmap[4] || 0) + data.msg.value * (mmap[4] || 1) - data.msg.value * (mmap[3] || 0)
+						).toFixed(mmap[5] || 3);
+						value = (mmap[5] === 0) ? parseInt(value, 10) : parseFloat(value);
+						if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
+							actions[mmap[0]](mmap[1], mmap[2], value);
+					}
+				}
 				break;
 			default:
 				break;

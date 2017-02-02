@@ -4,7 +4,9 @@ const obj = require('iblokz/common/obj');
 
 // initial
 const initial = {
-	audioOn: false,
+	audio: false,
+	mic: false,
+	lastAffected: '0',
 	channels: {
 		0: {process: 'empty', gain: 0.5, layers: 0},
 		1: {process: 'empty', gain: 0.5, layers: 0},
@@ -15,15 +17,26 @@ const initial = {
 
 // actions
 const toggle = path => state => obj.patch(state, path, !obj.sub(state, path));
-const change = (channel, param, value) => state => obj.patch(state, ['channels', channel, param], value);
 
-const playRec = channel => state => obj.patch(state, ['channels', channel, 'process'],
-	(state.audio)
+const change = (channel, param, value) => state => Object.assign(
+	obj.patch(state, ['channels', channel, param], value),
+	{
+		lastAffected: channel
+	}
+);
+
+const playRec = channel => state => Object.assign(obj.patch(state, ['channels', channel], {
+	layers: ['record', 'overdub'].indexOf(state.channels[channel].process) > -1
+		? state.channels[channel].layers + 1
+		: state.channels[channel].layers,
+	process: (state.audio)
 		? (state.channels[channel].process === 'empty') ? 'record'
 			: (state.channels[channel].process === 'play')
 				? 'overdub' : 'play'
 		: state.channels[channel].process
-);
+}), {
+	lastAffected: channel
+});
 
 /*
 const playRec = channel => state => obj.patch(state, ['channels', channel, 'process'],
@@ -33,15 +46,25 @@ const playRec = channel => state => obj.patch(state, ['channels', channel, 'proc
 );
 */
 
-const stop = channel => state => obj.patch(state, ['channels', channel, 'process'],
-	(state.channels[channel].process !== 'empty')
+const stop = channel => state => Object.assign(obj.patch(state, ['channels', channel], {
+	layers: ['record', 'overdub'].indexOf(state.channels[channel].process) > -1
+		? state.channels[channel].layers + 1
+		: state.channels[channel].layers,
+	process: (state.channels[channel].process !== 'empty')
 		?	'idle'
 		: 'empty'
-);
+}), {
+	lastAffected: channel
+});
 
 // layers
 
-const clear = channel => state => obj.patch(state, ['channels', channel, 'process'], 'empty');
+const clear = channel => state => Object.assign(obj.patch(state, ['channels', channel], {
+	process: 'empty',
+	layers: 0
+}), {
+	lastAffected: channel
+});
 
 module.exports = {
 	initial,
