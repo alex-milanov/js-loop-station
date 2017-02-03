@@ -1,4 +1,768 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+/**
+ * @module  audio-buffer-utils
+ */
+
+require('typedarray-methods');
+var AudioBuffer = require('audio-buffer');
+var isAudioBuffer = require('is-audio-buffer');
+var isBrowser = require('is-browser');
+
+
+module.exports = {
+    create: create,
+    copy: copy,
+    shallow: shallow,
+    clone: clone,
+    reverse: reverse,
+    invert: invert,
+    zero: zero,
+    noise: noise,
+    equal: equal,
+    fill: fill,
+    slice: slice,
+    map: map,
+    concat: concat,
+    resize: resize,
+    pad: pad,
+    rotate: rotate,
+    shift: shift,
+    reduce: reduce,
+    normalize: normalize,
+    trim: trim,
+    trimStart: trimStart,
+    trimEnd: trimEnd,
+    mix: mix,
+    size: size,
+    data: data
+};
+
+
+/**
+ * Create buffer from any argument
+ */
+function create (a, b, c) {
+    return new AudioBuffer(a, b, c);
+}
+
+
+/**
+ * Copy data from buffer A to buffer B
+ */
+function copy (from, to, offset) {
+    validate(from);
+    validate(to);
+
+    offset = offset || 0;
+
+    for (var channel = 0, l = Math.min(from.numberOfChannels, to.numberOfChannels); channel < l; channel++) {
+        to.getChannelData(channel).set(from.getChannelData(channel), offset);
+    }
+
+    return to;
+}
+
+
+/**
+ * Assert argument is AudioBuffer, throw error otherwise.
+ */
+function validate (buffer) {
+    if (!isAudioBuffer(buffer)) throw new Error('Argument should be an AudioBuffer instance.');
+}
+
+
+
+/**
+ * Create a buffer with the same characteristics as inBuffer, without copying
+ * the data. Contents of resulting buffer are undefined.
+ */
+function shallow (buffer) {
+    validate(buffer);
+
+    //workaround for faster browser creation
+    //avoid extra checks & copying inside of AudioBuffer class
+    if (isBrowser) {
+        return AudioBuffer.context.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+    }
+
+    return create(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+}
+
+
+/**
+ * Create clone of a buffer
+ */
+function clone (buffer) {
+    return copy(buffer, shallow(buffer));
+}
+
+
+/**
+ * Reverse samples in each channel
+ */
+function reverse (buffer, target) {
+    validate(buffer);
+
+    if (target) {
+        validate(target);
+        copy(buffer, target);
+    }
+    else {
+        target = buffer;
+    }
+
+    for (var i = 0, c = target.numberOfChannels; i < c; ++i) {
+        target.getChannelData(i).reverse();
+    }
+
+    return target;
+}
+
+
+/**
+ * Invert amplitude of samples in each channel
+ */
+function invert (buffer, target, start, end) {
+    return fill(buffer, target, function (sample) { return -sample; }, start, end);
+}
+
+
+/**
+ * Fill with zeros
+ */
+function zero (buffer, target, start, end) {
+    return fill(buffer, target, 0, start, end);
+}
+
+
+/**
+ * Fill with white noise
+ */
+function noise (buffer, target, start, end) {
+    return fill(buffer, target, function (sample) { return Math.random() * 2 - 1; }, start, end);
+}
+
+
+/**
+ * Test whether two buffers are the same
+ */
+function equal (bufferA, bufferB) {
+    //walk by all the arguments
+    if (arguments.length > 2) {
+        for (var i = 0, l = arguments.length - 1; i < l; i++) {
+            if (!equal(arguments[i], arguments[i + 1])) return false;
+        }
+        return true;
+    }
+
+    validate(bufferA);
+    validate(bufferB);
+
+    if (bufferA.length !== bufferB.length || bufferA.numberOfChannels !== bufferB.numberOfChannels) return false;
+
+    for (var channel = 0; channel < bufferA.numberOfChannels; channel++) {
+        var dataA = bufferA.getChannelData(channel);
+        var dataB = bufferB.getChannelData(channel);
+
+        for (var i = 0; i < dataA.length; i++) {
+            if (dataA[i] !== dataB[i]) return false;
+        }
+    }
+
+    return true;
+}
+
+
+/**
+ * A helper to return slicing offset
+ */
+function getStart (pos, len) {
+    if (pos == null) return 0;
+    return pos < 0 ? (len + (pos % len)) : Math.min(len, pos);
+}
+function getEnd (pos, len) {
+    if (pos == null) return len;
+    return pos < 0 ? (len + (pos % len)) : Math.min(len, pos);
+}
+
+
+/**
+ * Generic in-place fill/transform
+ */
+function fill (buffer, target, value, start, end) {
+    validate(buffer);
+
+    //if target buffer is passed
+    if (!isAudioBuffer(target) && target != null) {
+        //target is bad argument
+        if (typeof value == 'function') {
+            target = null;
+        }
+        else {
+            end = start;
+            start = value;
+            value = target;
+            target = null;
+        }
+    }
+
+    if (target) {
+        validate(target);
+    }
+    else {
+        target = buffer;
+    }
+
+    //resolve optional start/end args
+    start = getStart(start, buffer.length);
+    end = getEnd(end, buffer.length);
+
+    //resolve type of value
+    if (!(value instanceof Function)) {
+        var fn = function () {return value;};
+    }
+    else {
+        var fn = value;
+    }
+
+    for (var channel = 0, c = buffer.numberOfChannels; channel < c; channel++) {
+        var data = buffer.getChannelData(channel),
+            targetData = target.getChannelData(channel),
+            l = buffer.length;
+        for (var i = start; i < end; i++) {
+            targetData[i] = fn.call(buffer, data[i], i, channel, data);
+        }
+    }
+
+    return target;
+}
+
+
+/**
+ * Return sliced buffer
+ */
+function slice (buffer, start, end) {
+    validate(buffer);
+
+    start = getStart(start, buffer.length);
+    end = getEnd(end, buffer.length);
+
+    var data = [];
+    for (var channel = 0; channel < buffer.numberOfChannels; channel++) {
+        data.push(buffer.getChannelData(channel).slice(start, end));
+    }
+    return create(buffer.numberOfChannels, data, buffer.sampleRate);
+}
+
+
+/**
+ * Return new buffer, mapped by a function.
+ * Similar to transform, but keeps initial buffer untouched
+ */
+function map (buffer, fn) {
+    validate(buffer);
+
+    var data = [];
+
+    for (var channel = 0; channel < buffer.numberOfChannels; channel++) {
+        data.push(buffer.getChannelData(channel).map(function (value, idx) {
+            return fn.call(buffer, value, idx, channel, data);
+        }));
+    }
+
+    return create(buffer.numberOfChannels, data, buffer.sampleRate);
+}
+
+
+/**
+ * Concat buffer with other buffer(s)
+ */
+function concat (bufferA, bufferB) {
+    //walk by all the arguments
+    if (arguments.length > 2) {
+        var result = bufferA;
+        for (var i = 1, l = arguments.length; i < l; i++) {
+            result = concat(result, arguments[i]);
+        }
+        return result;
+    }
+
+    validate(bufferA);
+    validate(bufferB);
+
+    var data = [];
+    var channels = Math.max(bufferA.numberOfChannels, bufferB.numberOfChannels);
+    var length = bufferA.length + bufferB.length;
+
+    //FIXME: there might be required more thoughtful resampling, but now I'm lazy sry :(
+    var sampleRate = Math.max(bufferA.sampleRate, bufferB.sampleRate);
+
+    for (var channel = 0; channel < channels; channel++) {
+        var channelData = new Float32Array(length);
+
+        if (channel < bufferA.numberOfChannels) {
+            channelData.set(bufferA.getChannelData(channel));
+        }
+
+        if (channel < bufferB.numberOfChannels) {
+            channelData.set(bufferB.getChannelData(channel), bufferA.length);
+        }
+
+        data.push(channelData);
+    }
+
+    return create(channels, data, sampleRate);
+}
+
+
+/**
+ * Change the length of the buffer, by trimming or filling with zeros
+ */
+function resize (buffer, length) {
+    validate(buffer);
+
+    if (length < buffer.length) return slice(buffer, 0, length);
+
+    return concat(buffer, create(length - buffer.length));
+}
+
+
+/**
+ * Pad buffer to required size
+ */
+function pad (a, b, value) {
+    var buffer, length;
+
+    if (typeof a === 'number') {
+        buffer = b;
+        length = a;
+    } else {
+        buffer = a;
+        length = b;
+    }
+
+    value = value || 0;
+
+    validate(buffer);
+
+    //no need to pad
+    if (length < buffer.length) return buffer;
+
+    //left-pad
+    if (buffer === b) {
+        return concat(fill(create(length - buffer.length), value), buffer);
+    }
+
+    //right-pad
+    return concat(buffer, fill(create(length - buffer.length), value));
+}
+
+
+
+/**
+ * Shift content of the buffer in circular fashion
+ */
+function rotate (buffer, offset) {
+    validate(buffer);
+
+    for (var channel = 0; channel < buffer.numberOfChannels; channel++) {
+        var cData = buffer.getChannelData(channel);
+        var srcData = cData.slice();
+        for (var i = 0, l = cData.length, idx; i < l; i++) {
+            idx = (offset + (offset + i < 0 ? l + i : i )) % l;
+            cData[idx] = srcData[i];
+        }
+    }
+
+    return buffer;
+}
+
+
+/**
+ * Shift content of the buffer
+ */
+function shift (buffer, offset) {
+    validate(buffer);
+
+    for (var channel = 0; channel < buffer.numberOfChannels; channel++) {
+        var cData = buffer.getChannelData(channel);
+        if (offset > 0) {
+            for (var i = cData.length - offset; i--;) {
+                cData[i + offset] = cData[i];
+            }
+        }
+        else {
+            for (var i = -offset, l = cData.length - offset; i < l; i++) {
+                cData[i + offset] = cData[i] || 0;
+            }
+        }
+    }
+
+    return buffer;
+}
+
+
+
+/**
+ * Reduce buffer to a single metric, e. g. average, max, min, volume etc
+ */
+function reduce (buffer, fn, value, start, end) {
+    validate(buffer);
+
+    start = getStart(start, buffer.length);
+    end = getEnd(end, buffer.length);
+
+    if (value == null) value = 0;
+
+    for (var channel = 0, c = buffer.numberOfChannels; channel < c; channel++) {
+        var data = buffer.getChannelData(channel),
+            l = buffer.length;
+        for (var i = start; i < end; i++) {
+            value = fn.call(buffer, value, data[i], i, channel, data);
+        }
+    }
+
+    return value;
+}
+
+
+/**
+ * Normalize buffer by the maximum value,
+ * limit values by the -1..1 range
+ */
+function normalize (buffer, target, start, end) {
+    validate(buffer);
+
+    //resolve optional target arg
+    if (!isAudioBuffer(target)) {
+        end = start;
+        start = target;
+        target = null;
+    }
+
+    if (target) {
+        validate(target);
+    }
+    else {
+        target = buffer;
+    }
+
+    var max = reduce(buffer, function (prev, curr) {
+        return Math.max(Math.abs(prev), Math.abs(curr));
+    }, 0, start, end);
+
+    var amp = 1 / Math.min(max, 1);
+
+    return fill(buffer, target, function (value) {
+        return Math.min(value * amp, 1);
+    }, start, end);
+}
+
+
+/**
+ * Trim sound (remove zeros from the beginning and the end)
+ */
+function trim (buffer, level) {
+    return trimInternal(buffer, level, true, true);
+}
+
+function trimStart (buffer, level) {
+    return trimInternal(buffer, level, true, false);
+}
+
+function trimEnd (buffer, level) {
+    return trimInternal(buffer, level, false, true);
+}
+
+function trimInternal(buffer, level, trimLeft, trimRight) {
+    validate(buffer);
+
+    level = (level == null) ? 0 : Math.abs(level);
+
+    var start, end;
+
+    if (trimLeft) {
+        start = buffer.length;
+        //FIXME: replace with indexOF
+        for (var channel = 0, c = buffer.numberOfChannels; channel < c; channel++) {
+            var data = buffer.getChannelData(channel);
+            for (var i = 0; i < data.length; i++) {
+                if (i > start) break;
+                if (Math.abs(data[i]) > level) {
+                    start = i;
+                    break;
+                }
+            }
+        }
+    } else {
+        start = 0;
+    }
+
+    if (trimRight) {
+        end = 0;
+        //FIXME: replace with lastIndexOf
+        for (var channel = 0, c = buffer.numberOfChannels; channel < c; channel++) {
+            var data = buffer.getChannelData(channel);
+            for (var i = data.length - 1; i >= 0; i--) {
+                if (i < end) break;
+                if (Math.abs(data[i]) > level) {
+                    end = i + 1;
+                    break;
+                }
+            }
+        }
+    } else {
+        end = buffer.length;
+    }
+
+    return slice(buffer, start, end);
+}
+
+
+/**
+ * Mix current buffer with the other one.
+ * The reason to modify bufferA instead of returning the new buffer
+ * is reduced amount of calculations and flexibility.
+ * If required, the cloning can be done before mixing, which will be the same.
+ */
+function mix (bufferA, bufferB, weight, offset) {
+    validate(bufferA);
+    validate(bufferB);
+
+    if (weight == null) weight = 0.5;
+    var fn = weight instanceof Function ? weight : function (a, b) {
+        return a * (1 - weight) + b * weight;
+    };
+
+    if (offset == null) offset = 0;
+    else if (offset < 0) offset += bufferA.length;
+
+    for (var channel = 0; channel < bufferA.numberOfChannels; channel++) {
+        var aData = bufferA.getChannelData(channel);
+        var bData = bufferB.getChannelData(channel);
+
+        for (var i = offset, j = 0; i < bufferA.length && j < bufferB.length; i++, j++) {
+            aData[i] = fn.call(bufferA, aData[i], bData[j], j, channel);
+        }
+    }
+
+    return bufferA;
+}
+
+
+/**
+ * Size of a buffer, in bytes
+ */
+function size (buffer) {
+    validate(buffer);
+
+    return buffer.numberOfChannels * buffer.getChannelData(0).byteLength;
+}
+
+
+/**
+ * Return array with buffer’s per-channel data
+ */
+function data (buffer, data) {
+    validate(buffer);
+
+    //ensure output data array, if not defined
+    data = data || [];
+
+    //transfer data per-channel
+    for (var channel = 0; channel < buffer.numberOfChannels; channel++) {
+        if (ArrayBuffer.isView(data[channel])) {
+            data[channel].set(buffer.getChannelData(channel));
+        }
+        else {
+            data[channel] = buffer.getChannelData(channel);
+        }
+    }
+
+    return data;
+}
+},{"audio-buffer":2,"is-audio-buffer":20,"is-browser":21,"typedarray-methods":123}],2:[function(require,module,exports){
+/**
+ * AudioBuffer class
+ *
+ * @module audio-buffer/buffer
+ */
+'use strict';
+
+var isBuffer = require('is-buffer');
+var b2ab = require('buffer-to-arraybuffer');
+var isBrowser = require('is-browser');
+var isAudioBuffer = require('is-audio-buffer');
+var context = require('audio-context');
+
+
+/**
+ * @constructor
+ *
+ * @param {∀} data Any collection-like object
+ */
+function AudioBuffer (channels, data, sampleRate) {
+	if (!(this instanceof AudioBuffer)) return new AudioBuffer(channels, data, sampleRate);
+
+	//if one argument only - it is surely data or length
+	//having new AudioBuffer(2) does not make sense as 2 - number of channels
+	if (data == null) {
+		data = channels || 1;
+		channels = null;
+	}
+	//audioCtx.createBuffer() - complacent arguments
+	else {
+		if (sampleRate != null) this.sampleRate = sampleRate;
+		else if (isBrowser) this.sampleRate = AudioBuffer.context.sampleRate;
+		if (channels != null) this.numberOfChannels = channels;
+	}
+
+	//if AudioBuffer(channels?, number, rate?) = create new array
+	//this is the default WAA-compatible case
+	if (typeof data === 'number') {
+		this.length = data;
+		this.data = new AudioBuffer.FloatArray(data * this.numberOfChannels);
+	}
+	//if other audio buffer passed - create fast clone of it
+	//if WAA AudioBuffer - get buffer’s data (it is bounded)
+	else if (isAudioBuffer(data)) {
+		this.length = data.length;
+		if (channels == null) this.numberOfChannels = data.numberOfChannels;
+		if (sampleRate == null) this.sampleRate = data.sampleRate;
+
+		this.data = new AudioBuffer.FloatArray(this.length * this.numberOfChannels);
+
+		//copy channel's data
+		for (var i = 0, l = this.numberOfChannels; i < l; i++) {
+			this.data.set(data.getChannelData(i), i * this.length);
+		}
+	}
+	//TypedArray, Buffer, DataView etc, or ArrayBuffer
+	//NOTE: node 4.x+ detects Buffer as ArrayBuffer view
+	else if (ArrayBuffer.isView(data) || data instanceof ArrayBuffer || isBuffer(data)) {
+		if (isBuffer(data)) {
+			data = b2ab(data);
+		}
+		if (!(data instanceof AudioBuffer.FloatArray)) {
+			data = new AudioBuffer.FloatArray(new Float32Array(data.buffer || data));
+		}
+
+		this.length = data.length / this.numberOfChannels;
+		this.data = data;
+	}
+	//if array - parse channeled data
+	else if (Array.isArray(data)) {
+		//if separated data passed already - send sub-arrays to channels
+		if (data[0] instanceof Object) {
+			if (channels == null) this.numberOfChannels = data.length;
+			this.length = data[0].length;
+			this.data = new AudioBuffer.FloatArray(this.length * this.numberOfChannels);
+			for (var i = 0; i < this.numberOfChannels; i++ ) {
+				this.data.set(data[i], i * this.length);
+			}
+		}
+		//plain array passed - split array equipartially
+		else {
+			this.length = Math.floor(data.length / this.numberOfChannels);
+			//detect zero-arrays
+			if (data[0] == null) data = this.length;
+			this.data = new AudioBuffer.FloatArray(data);
+		}
+	}
+	//if ndarray, typedarray or other data-holder passed - redirect plain databuffer
+	else if (data && (data.data || data.buffer)) {
+		return new AudioBuffer(this.numberOfChannels, data.data || data.buffer, this.sampleRate);
+	}
+	//if other - unable to parse arguments
+	else {
+		throw Error('Failed to create buffer: check provided arguments');
+	}
+
+
+	//for browser - just return WAA buffer
+	if (AudioBuffer.isWAA) {
+		//create WAA buffer
+		var audioBuffer = AudioBuffer.context.createBuffer(this.numberOfChannels, this.length, this.sampleRate);
+
+		//fill channels
+		for (var i = 0; i < this.numberOfChannels; i++) {
+			audioBuffer.getChannelData(i).set(this.getChannelData(i));
+		}
+
+		return audioBuffer;
+	}
+
+	this.duration = this.length / this.sampleRate;
+};
+
+/** Type of storage to use */
+AudioBuffer.FloatArray = typeof Float64Array === 'undefined' ? Float32Array : Float64Array;
+
+
+/** Set context, though can be redefined */
+AudioBuffer.context = context;
+
+
+/** Whether WebAudioBuffer should be created */
+AudioBuffer.isWAA = isBrowser && context.createBuffer;
+
+
+/**
+ * Default params
+ */
+AudioBuffer.prototype.numberOfChannels = 2;
+AudioBuffer.prototype.sampleRate = AudioBuffer.context.sampleRate || 44100;
+
+
+/**
+ * Return data associated with the channel.
+ *
+ * @return {Array} Array containing the data
+ */
+AudioBuffer.prototype.getChannelData = function (channel) {
+	//FIXME: ponder on this, whether we really need that rigorous check, it may affect performance
+	if (channel >= this.numberOfChannels || channel < 0 || channel == null) throw Error('Cannot getChannelData: channel number (' + channel + ') exceeds number of channels (' + this.numberOfChannels + ')');
+
+	return this.data.subarray(channel * this.length, (channel + 1) * this.length);
+};
+
+
+/**
+ * Place data to the destination buffer, starting from the position
+ */
+AudioBuffer.prototype.copyFromChannel = function (destination, channelNumber, startInChannel) {
+	var offset = channelNumber * this.length;
+	if (startInChannel == null) startInChannel = 0;
+	for (var i = startInChannel, j = 0; i < this.length && j < destination.length; i++, j++) {
+		destination[j] = this.data[offset + i];
+	}
+};
+
+
+/**
+ * Place data from the source to the channel, starting (in self) from the position
+ * Clone of WAAudioBuffer
+ */
+AudioBuffer.prototype.copyToChannel = function (source, channelNumber, startInChannel) {
+	var offset = channelNumber * this.length;
+
+	if (!startInChannel) startInChannel = 0;
+
+	for (var i = startInChannel, j = 0; i < this.length && j < source.length; i++, j++) {
+		this.data[offset + i] = source[j];
+	}
+};
+
+
+module.exports = AudioBuffer;
+
+},{"audio-context":3,"buffer-to-arraybuffer":7,"is-audio-buffer":20,"is-browser":21,"is-buffer":22}],3:[function(require,module,exports){
+var window = require('global/window');
+
+var Context = window.AudioContext || window.webkitAudioContext;
+if (Context) module.exports = new Context;
+
+},{"global/window":12}],4:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -114,9 +878,9 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-},{}],2:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 
-},{}],3:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 (function (global){
 'use strict';
 
@@ -228,7 +992,42 @@ exports.allocUnsafeSlow = function allocUnsafeSlow(size) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"buffer":4}],4:[function(require,module,exports){
+},{"buffer":8}],7:[function(require,module,exports){
+(function (Buffer){
+(function(root) {
+  var isArrayBufferSupported = (new Buffer(0)).buffer instanceof ArrayBuffer;
+
+  var bufferToArrayBuffer = isArrayBufferSupported ? bufferToArrayBufferSlice : bufferToArrayBufferCycle;
+
+  function bufferToArrayBufferSlice(buffer) {
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  }
+
+  function bufferToArrayBufferCycle(buffer) {
+    var ab = new ArrayBuffer(buffer.length);
+    var view = new Uint8Array(ab);
+    for (var i = 0; i < buffer.length; ++i) {
+      view[i] = buffer[i];
+    }
+    return ab;
+  }
+
+  if (typeof exports !== 'undefined') {
+    if (typeof module !== 'undefined' && module.exports) {
+      exports = module.exports = bufferToArrayBuffer;
+    }
+    exports.bufferToArrayBuffer = bufferToArrayBuffer;
+  } else if (typeof define === 'function' && define.amd) {
+    define([], function() {
+      return bufferToArrayBuffer;
+    });
+  } else {
+    root.bufferToArrayBuffer = bufferToArrayBuffer;
+  }
+})(this);
+
+}).call(this,require("buffer").Buffer)
+},{"buffer":8}],8:[function(require,module,exports){
 (function (global){
 /*!
  * The buffer module from node.js, for the browser.
@@ -2021,7 +2820,7 @@ function isnan (val) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"base64-js":1,"ieee754":12,"isarray":16}],5:[function(require,module,exports){
+},{"base64-js":4,"ieee754":17,"isarray":23}],9:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -2132,7 +2931,7 @@ function objectToString(o) {
 }
 
 }).call(this,{"isBuffer":require("../../is-buffer/index.js")})
-},{"../../is-buffer/index.js":15}],6:[function(require,module,exports){
+},{"../../is-buffer/index.js":22}],10:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -2436,7 +3235,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],7:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 /* FileSaver.js
  * A saveAs() FileSaver implementation.
  * 1.3.2
@@ -2626,7 +3425,18 @@ if (typeof module !== "undefined" && module.exports) {
   });
 }
 
-},{}],8:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
+(function (global){
+if (typeof window !== "undefined") {
+    module.exports = window;
+} else if (typeof global !== "undefined") {
+    module.exports = global;
+} else {
+    module.exports = {};
+}
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],13:[function(require,module,exports){
 'use strict';
 
 const snabbdom = require('snabbdom');
@@ -2716,7 +3526,7 @@ module.exports = Object.assign(
 	hyperHelpers
 );
 
-},{"../common/obj":11,"snabbdom":112,"snabbdom/h":104,"snabbdom/modules/attributes":107,"snabbdom/modules/class":108,"snabbdom/modules/eventlisteners":109,"snabbdom/modules/props":110,"snabbdom/modules/style":111}],9:[function(require,module,exports){
+},{"../common/obj":16,"snabbdom":119,"snabbdom/h":111,"snabbdom/modules/attributes":114,"snabbdom/modules/class":115,"snabbdom/modules/eventlisteners":116,"snabbdom/modules/props":117,"snabbdom/modules/style":118}],14:[function(require,module,exports){
 'use strict';
 
 const fromList = list => Array.prototype.slice.call(list);
@@ -2725,7 +3535,7 @@ module.exports = {
 	fromList
 };
 
-},{}],10:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 'use strict';
 
 const compose = (...fList) => (...args) => fList.reduce(
@@ -2740,7 +3550,7 @@ module.exports = {
 	switch: _switch
 };
 
-},{}],11:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 'use strict';
 
 const keyValue = (k, v) => {
@@ -2785,7 +3595,7 @@ module.exports = {
 	chainCall
 };
 
-},{}],12:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = nBytes * 8 - mLen - 1
@@ -2871,7 +3681,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],13:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 (function (global){
 'use strict';
 var Mutation = global.MutationObserver || global.WebKitMutationObserver;
@@ -2944,7 +3754,7 @@ function immediate(task) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],14:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -2969,7 +3779,20 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],15:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
+/**
+ * @module  is-audio-buffer
+ */
+
+module.exports = function isAudioBuffer (buffer) {
+	//the guess is duck-typing
+	return buffer != null
+	&& buffer.sampleRate != null //swims like AudioBuffer
+	&& typeof buffer.getChannelData === 'function' //quacks like AudioBuffer
+};
+},{}],21:[function(require,module,exports){
+module.exports = true;
+},{}],22:[function(require,module,exports){
 /*!
  * Determine if an object is a Buffer
  *
@@ -2992,14 +3815,14 @@ function isSlowBuffer (obj) {
   return typeof obj.readFloatLE === 'function' && typeof obj.slice === 'function' && isBuffer(obj.slice(0, 0))
 }
 
-},{}],16:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = Array.isArray || function (arr) {
   return toString.call(arr) == '[object Array]';
 };
 
-},{}],17:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 'use strict';
 var utils = require('./utils');
 var support = require('./support');
@@ -3107,7 +3930,7 @@ exports.decode = function(input) {
     return output;
 };
 
-},{"./support":46,"./utils":48}],18:[function(require,module,exports){
+},{"./support":53,"./utils":55}],25:[function(require,module,exports){
 'use strict';
 
 var external = require("./external");
@@ -3184,7 +4007,7 @@ CompressedObject.createWorkerFrom = function (uncompressedWorker, compression, c
 
 module.exports = CompressedObject;
 
-},{"./external":22,"./stream/Crc32Probe":41,"./stream/DataLengthProbe":42,"./stream/DataWorker":43}],19:[function(require,module,exports){
+},{"./external":29,"./stream/Crc32Probe":48,"./stream/DataLengthProbe":49,"./stream/DataWorker":50}],26:[function(require,module,exports){
 'use strict';
 
 var GenericWorker = require("./stream/GenericWorker");
@@ -3200,7 +4023,7 @@ exports.STORE = {
 };
 exports.DEFLATE = require('./flate');
 
-},{"./flate":23,"./stream/GenericWorker":44}],20:[function(require,module,exports){
+},{"./flate":30,"./stream/GenericWorker":51}],27:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -3280,7 +4103,7 @@ module.exports = function crc32wrapper(input, crc) {
 };
 // vim: set shiftwidth=4 softtabstop=4:
 
-},{"./utils":48}],21:[function(require,module,exports){
+},{"./utils":55}],28:[function(require,module,exports){
 'use strict';
 exports.base64 = false;
 exports.binary = false;
@@ -3293,7 +4116,7 @@ exports.comment = null;
 exports.unixPermissions = null;
 exports.dosPermissions = null;
 
-},{}],22:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 /* global Promise */
 'use strict';
 
@@ -3314,7 +4137,7 @@ module.exports = {
     Promise: ES6Promise
 };
 
-},{"lie":89}],23:[function(require,module,exports){
+},{"lie":96}],30:[function(require,module,exports){
 'use strict';
 var USE_TYPEDARRAY = (typeof Uint8Array !== 'undefined') && (typeof Uint16Array !== 'undefined') && (typeof Uint32Array !== 'undefined');
 
@@ -3384,7 +4207,7 @@ exports.uncompressWorker = function () {
     return new FlateWorker("Inflate", {});
 };
 
-},{"./stream/GenericWorker":44,"./utils":48,"pako":73}],24:[function(require,module,exports){
+},{"./stream/GenericWorker":51,"./utils":55,"pako":80}],31:[function(require,module,exports){
 'use strict';
 
 var utils = require('../utils');
@@ -3926,7 +4749,7 @@ ZipFileWorker.prototype.lock = function () {
 
 module.exports = ZipFileWorker;
 
-},{"../crc32":20,"../signature":39,"../stream/GenericWorker":44,"../utf8":47,"../utils":48}],25:[function(require,module,exports){
+},{"../crc32":27,"../signature":46,"../stream/GenericWorker":51,"../utf8":54,"../utils":55}],32:[function(require,module,exports){
 'use strict';
 
 var compressions = require('../compressions');
@@ -3985,7 +4808,7 @@ exports.generateWorker = function (zip, options, comment) {
     return zipFileWorker;
 };
 
-},{"../compressions":19,"./ZipFileWorker":24}],26:[function(require,module,exports){
+},{"../compressions":26,"./ZipFileWorker":31}],33:[function(require,module,exports){
 'use strict';
 
 /**
@@ -4039,7 +4862,7 @@ JSZip.loadAsync = function (content, options) {
 JSZip.external = require("./external");
 module.exports = JSZip;
 
-},{"./defaults":21,"./external":22,"./load":27,"./object":31,"./support":46}],27:[function(require,module,exports){
+},{"./defaults":28,"./external":29,"./load":34,"./object":38,"./support":53}],34:[function(require,module,exports){
 'use strict';
 var utils = require('./utils');
 var external = require("./external");
@@ -4123,7 +4946,7 @@ module.exports = function(data, options) {
     });
 };
 
-},{"./external":22,"./nodejsUtils":30,"./stream/Crc32Probe":41,"./utf8":47,"./utils":48,"./zipEntries":49}],28:[function(require,module,exports){
+},{"./external":29,"./nodejsUtils":37,"./stream/Crc32Probe":48,"./utf8":54,"./utils":55,"./zipEntries":56}],35:[function(require,module,exports){
 "use strict";
 
 var utils = require('../utils');
@@ -4199,7 +5022,7 @@ NodejsStreamInputAdapter.prototype.resume = function () {
 
 module.exports = NodejsStreamInputAdapter;
 
-},{"../stream/GenericWorker":44,"../utils":48}],29:[function(require,module,exports){
+},{"../stream/GenericWorker":51,"../utils":55}],36:[function(require,module,exports){
 'use strict';
 
 var Readable = require('readable-stream').Readable;
@@ -4243,7 +5066,7 @@ NodejsStreamOutputAdapter.prototype._read = function() {
 
 module.exports = NodejsStreamOutputAdapter;
 
-},{"readable-stream":32,"util":119}],30:[function(require,module,exports){
+},{"readable-stream":39,"util":127}],37:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -4281,7 +5104,7 @@ module.exports = {
 };
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":4}],31:[function(require,module,exports){
+},{"buffer":8}],38:[function(require,module,exports){
 'use strict';
 var utf8 = require('./utf8');
 var utils = require('./utils');
@@ -4672,7 +5495,7 @@ var out = {
 };
 module.exports = out;
 
-},{"./compressedObject":18,"./defaults":21,"./generate":25,"./nodejs/NodejsStreamInputAdapter":28,"./nodejsUtils":30,"./stream/GenericWorker":44,"./stream/StreamHelper":45,"./utf8":47,"./utils":48,"./zipObject":51}],32:[function(require,module,exports){
+},{"./compressedObject":25,"./defaults":28,"./generate":32,"./nodejs/NodejsStreamInputAdapter":35,"./nodejsUtils":37,"./stream/GenericWorker":51,"./stream/StreamHelper":52,"./utf8":54,"./utils":55,"./zipObject":58}],39:[function(require,module,exports){
 /*
  * This file is used by module bundlers (browserify/webpack/etc) when
  * including a stream implementation. We use "readable-stream" to get a
@@ -4683,7 +5506,7 @@ module.exports = out;
  */
 module.exports = require("stream");
 
-},{"stream":114}],33:[function(require,module,exports){
+},{"stream":121}],40:[function(require,module,exports){
 'use strict';
 var DataReader = require('./DataReader');
 var utils = require('../utils');
@@ -4742,7 +5565,7 @@ ArrayReader.prototype.readData = function(size) {
 };
 module.exports = ArrayReader;
 
-},{"../utils":48,"./DataReader":34}],34:[function(require,module,exports){
+},{"../utils":55,"./DataReader":41}],41:[function(require,module,exports){
 'use strict';
 var utils = require('../utils');
 
@@ -4860,7 +5683,7 @@ DataReader.prototype = {
 };
 module.exports = DataReader;
 
-},{"../utils":48}],35:[function(require,module,exports){
+},{"../utils":55}],42:[function(require,module,exports){
 'use strict';
 var Uint8ArrayReader = require('./Uint8ArrayReader');
 var utils = require('../utils');
@@ -4881,7 +5704,7 @@ NodeBufferReader.prototype.readData = function(size) {
 };
 module.exports = NodeBufferReader;
 
-},{"../utils":48,"./Uint8ArrayReader":37}],36:[function(require,module,exports){
+},{"../utils":55,"./Uint8ArrayReader":44}],43:[function(require,module,exports){
 'use strict';
 var DataReader = require('./DataReader');
 var utils = require('../utils');
@@ -4921,7 +5744,7 @@ StringReader.prototype.readData = function(size) {
 };
 module.exports = StringReader;
 
-},{"../utils":48,"./DataReader":34}],37:[function(require,module,exports){
+},{"../utils":55,"./DataReader":41}],44:[function(require,module,exports){
 'use strict';
 var ArrayReader = require('./ArrayReader');
 var utils = require('../utils');
@@ -4945,7 +5768,7 @@ Uint8ArrayReader.prototype.readData = function(size) {
 };
 module.exports = Uint8ArrayReader;
 
-},{"../utils":48,"./ArrayReader":33}],38:[function(require,module,exports){
+},{"../utils":55,"./ArrayReader":40}],45:[function(require,module,exports){
 'use strict';
 
 var utils = require('../utils');
@@ -4977,7 +5800,7 @@ module.exports = function (data) {
 
 // vim: set shiftwidth=4 softtabstop=4:
 
-},{"../support":46,"../utils":48,"./ArrayReader":33,"./NodeBufferReader":35,"./StringReader":36,"./Uint8ArrayReader":37}],39:[function(require,module,exports){
+},{"../support":53,"../utils":55,"./ArrayReader":40,"./NodeBufferReader":42,"./StringReader":43,"./Uint8ArrayReader":44}],46:[function(require,module,exports){
 'use strict';
 exports.LOCAL_FILE_HEADER = "PK\x03\x04";
 exports.CENTRAL_FILE_HEADER = "PK\x01\x02";
@@ -4986,7 +5809,7 @@ exports.ZIP64_CENTRAL_DIRECTORY_LOCATOR = "PK\x06\x07";
 exports.ZIP64_CENTRAL_DIRECTORY_END = "PK\x06\x06";
 exports.DATA_DESCRIPTOR = "PK\x07\x08";
 
-},{}],40:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 'use strict';
 
 var GenericWorker = require('./GenericWorker');
@@ -5014,7 +5837,7 @@ ConvertWorker.prototype.processChunk = function (chunk) {
 };
 module.exports = ConvertWorker;
 
-},{"../utils":48,"./GenericWorker":44}],41:[function(require,module,exports){
+},{"../utils":55,"./GenericWorker":51}],48:[function(require,module,exports){
 'use strict';
 
 var GenericWorker = require('./GenericWorker');
@@ -5040,7 +5863,7 @@ Crc32Probe.prototype.processChunk = function (chunk) {
 };
 module.exports = Crc32Probe;
 
-},{"../crc32":20,"../utils":48,"./GenericWorker":44}],42:[function(require,module,exports){
+},{"../crc32":27,"../utils":55,"./GenericWorker":51}],49:[function(require,module,exports){
 'use strict';
 
 var utils = require('../utils');
@@ -5071,7 +5894,7 @@ DataLengthProbe.prototype.processChunk = function (chunk) {
 module.exports = DataLengthProbe;
 
 
-},{"../utils":48,"./GenericWorker":44}],43:[function(require,module,exports){
+},{"../utils":55,"./GenericWorker":51}],50:[function(require,module,exports){
 'use strict';
 
 var utils = require('../utils');
@@ -5189,7 +6012,7 @@ DataWorker.prototype._tick = function() {
 
 module.exports = DataWorker;
 
-},{"../utils":48,"./GenericWorker":44}],44:[function(require,module,exports){
+},{"../utils":55,"./GenericWorker":51}],51:[function(require,module,exports){
 'use strict';
 
 /**
@@ -5454,7 +6277,7 @@ GenericWorker.prototype = {
 
 module.exports = GenericWorker;
 
-},{}],45:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -5677,7 +6500,7 @@ StreamHelper.prototype = {
 module.exports = StreamHelper;
 
 }).call(this,require("buffer").Buffer)
-},{"../base64":17,"../external":22,"../nodejs/NodejsStreamOutputAdapter":29,"../support":46,"../utils":48,"./ConvertWorker":40,"./GenericWorker":44,"buffer":4}],46:[function(require,module,exports){
+},{"../base64":24,"../external":29,"../nodejs/NodejsStreamOutputAdapter":36,"../support":53,"../utils":55,"./ConvertWorker":47,"./GenericWorker":51,"buffer":8}],53:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -5719,7 +6542,7 @@ try {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":4,"readable-stream":32}],47:[function(require,module,exports){
+},{"buffer":8,"readable-stream":39}],54:[function(require,module,exports){
 'use strict';
 
 var utils = require('./utils');
@@ -5996,7 +6819,7 @@ Utf8EncodeWorker.prototype.processChunk = function (chunk) {
 };
 exports.Utf8EncodeWorker = Utf8EncodeWorker;
 
-},{"./nodejsUtils":30,"./stream/GenericWorker":44,"./support":46,"./utils":48}],48:[function(require,module,exports){
+},{"./nodejsUtils":37,"./stream/GenericWorker":51,"./support":53,"./utils":55}],55:[function(require,module,exports){
 'use strict';
 
 var support = require('./support');
@@ -6476,7 +7299,7 @@ exports.prepareContent = function(name, inputData, isBinary, isOptimizedBinarySt
     });
 };
 
-},{"./base64":17,"./external":22,"./nodejsUtils":30,"./support":46,"core-js/library/fn/set-immediate":52}],49:[function(require,module,exports){
+},{"./base64":24,"./external":29,"./nodejsUtils":37,"./support":53,"core-js/library/fn/set-immediate":59}],56:[function(require,module,exports){
 'use strict';
 var readerFor = require('./reader/readerFor');
 var utils = require('./utils');
@@ -6740,7 +7563,7 @@ ZipEntries.prototype = {
 // }}} end of ZipEntries
 module.exports = ZipEntries;
 
-},{"./reader/readerFor":38,"./signature":39,"./support":46,"./utf8":47,"./utils":48,"./zipEntry":50}],50:[function(require,module,exports){
+},{"./reader/readerFor":45,"./signature":46,"./support":53,"./utf8":54,"./utils":55,"./zipEntry":57}],57:[function(require,module,exports){
 'use strict';
 var readerFor = require('./reader/readerFor');
 var utils = require('./utils');
@@ -7034,7 +7857,7 @@ ZipEntry.prototype = {
 };
 module.exports = ZipEntry;
 
-},{"./compressedObject":18,"./compressions":19,"./crc32":20,"./reader/readerFor":38,"./support":46,"./utf8":47,"./utils":48}],51:[function(require,module,exports){
+},{"./compressedObject":25,"./compressions":26,"./crc32":27,"./reader/readerFor":45,"./support":53,"./utf8":54,"./utils":55}],58:[function(require,module,exports){
 'use strict';
 
 var StreamHelper = require('./stream/StreamHelper');
@@ -7160,30 +7983,30 @@ for(var i = 0; i < removedMethods.length; i++) {
 }
 module.exports = ZipObject;
 
-},{"./compressedObject":18,"./stream/DataWorker":43,"./stream/GenericWorker":44,"./stream/StreamHelper":45,"./utf8":47}],52:[function(require,module,exports){
+},{"./compressedObject":25,"./stream/DataWorker":50,"./stream/GenericWorker":51,"./stream/StreamHelper":52,"./utf8":54}],59:[function(require,module,exports){
 require('../modules/web.immediate');
 module.exports = require('../modules/_core').setImmediate;
-},{"../modules/_core":56,"../modules/web.immediate":72}],53:[function(require,module,exports){
+},{"../modules/_core":63,"../modules/web.immediate":79}],60:[function(require,module,exports){
 module.exports = function(it){
   if(typeof it != 'function')throw TypeError(it + ' is not a function!');
   return it;
 };
-},{}],54:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 var isObject = require('./_is-object');
 module.exports = function(it){
   if(!isObject(it))throw TypeError(it + ' is not an object!');
   return it;
 };
-},{"./_is-object":67}],55:[function(require,module,exports){
+},{"./_is-object":74}],62:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = function(it){
   return toString.call(it).slice(8, -1);
 };
-},{}],56:[function(require,module,exports){
+},{}],63:[function(require,module,exports){
 var core = module.exports = {version: '2.3.0'};
 if(typeof __e == 'number')__e = core; // eslint-disable-line no-undef
-},{}],57:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 // optional / simple context binding
 var aFunction = require('./_a-function');
 module.exports = function(fn, that, length){
@@ -7204,12 +8027,12 @@ module.exports = function(fn, that, length){
     return fn.apply(that, arguments);
   };
 };
-},{"./_a-function":53}],58:[function(require,module,exports){
+},{"./_a-function":60}],65:[function(require,module,exports){
 // Thank's IE8 for his funny defineProperty
 module.exports = !require('./_fails')(function(){
   return Object.defineProperty({}, 'a', {get: function(){ return 7; }}).a != 7;
 });
-},{"./_fails":61}],59:[function(require,module,exports){
+},{"./_fails":68}],66:[function(require,module,exports){
 var isObject = require('./_is-object')
   , document = require('./_global').document
   // in old IE typeof document.createElement is 'object'
@@ -7217,7 +8040,7 @@ var isObject = require('./_is-object')
 module.exports = function(it){
   return is ? document.createElement(it) : {};
 };
-},{"./_global":62,"./_is-object":67}],60:[function(require,module,exports){
+},{"./_global":69,"./_is-object":74}],67:[function(require,module,exports){
 var global    = require('./_global')
   , core      = require('./_core')
   , ctx       = require('./_ctx')
@@ -7279,7 +8102,7 @@ $export.W = 32;  // wrap
 $export.U = 64;  // safe
 $export.R = 128; // real proto method for `library` 
 module.exports = $export;
-},{"./_core":56,"./_ctx":57,"./_global":62,"./_hide":63}],61:[function(require,module,exports){
+},{"./_core":63,"./_ctx":64,"./_global":69,"./_hide":70}],68:[function(require,module,exports){
 module.exports = function(exec){
   try {
     return !!exec();
@@ -7287,12 +8110,12 @@ module.exports = function(exec){
     return true;
   }
 };
-},{}],62:[function(require,module,exports){
+},{}],69:[function(require,module,exports){
 // https://github.com/zloirock/core-js/issues/86#issuecomment-115759028
 var global = module.exports = typeof window != 'undefined' && window.Math == Math
   ? window : typeof self != 'undefined' && self.Math == Math ? self : Function('return this')();
 if(typeof __g == 'number')__g = global; // eslint-disable-line no-undef
-},{}],63:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 var dP         = require('./_object-dp')
   , createDesc = require('./_property-desc');
 module.exports = require('./_descriptors') ? function(object, key, value){
@@ -7301,13 +8124,13 @@ module.exports = require('./_descriptors') ? function(object, key, value){
   object[key] = value;
   return object;
 };
-},{"./_descriptors":58,"./_object-dp":68,"./_property-desc":69}],64:[function(require,module,exports){
+},{"./_descriptors":65,"./_object-dp":75,"./_property-desc":76}],71:[function(require,module,exports){
 module.exports = require('./_global').document && document.documentElement;
-},{"./_global":62}],65:[function(require,module,exports){
+},{"./_global":69}],72:[function(require,module,exports){
 module.exports = !require('./_descriptors') && !require('./_fails')(function(){
   return Object.defineProperty(require('./_dom-create')('div'), 'a', {get: function(){ return 7; }}).a != 7;
 });
-},{"./_descriptors":58,"./_dom-create":59,"./_fails":61}],66:[function(require,module,exports){
+},{"./_descriptors":65,"./_dom-create":66,"./_fails":68}],73:[function(require,module,exports){
 // fast apply, http://jsperf.lnkit.com/fast-apply/5
 module.exports = function(fn, args, that){
   var un = that === undefined;
@@ -7324,11 +8147,11 @@ module.exports = function(fn, args, that){
                       : fn.call(that, args[0], args[1], args[2], args[3]);
   } return              fn.apply(that, args);
 };
-},{}],67:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 module.exports = function(it){
   return typeof it === 'object' ? it !== null : typeof it === 'function';
 };
-},{}],68:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 var anObject       = require('./_an-object')
   , IE8_DOM_DEFINE = require('./_ie8-dom-define')
   , toPrimitive    = require('./_to-primitive')
@@ -7345,7 +8168,7 @@ exports.f = require('./_descriptors') ? Object.defineProperty : function defineP
   if('value' in Attributes)O[P] = Attributes.value;
   return O;
 };
-},{"./_an-object":54,"./_descriptors":58,"./_ie8-dom-define":65,"./_to-primitive":71}],69:[function(require,module,exports){
+},{"./_an-object":61,"./_descriptors":65,"./_ie8-dom-define":72,"./_to-primitive":78}],76:[function(require,module,exports){
 module.exports = function(bitmap, value){
   return {
     enumerable  : !(bitmap & 1),
@@ -7354,7 +8177,7 @@ module.exports = function(bitmap, value){
     value       : value
   };
 };
-},{}],70:[function(require,module,exports){
+},{}],77:[function(require,module,exports){
 var ctx                = require('./_ctx')
   , invoke             = require('./_invoke')
   , html               = require('./_html')
@@ -7430,7 +8253,7 @@ module.exports = {
   set:   setTask,
   clear: clearTask
 };
-},{"./_cof":55,"./_ctx":57,"./_dom-create":59,"./_global":62,"./_html":64,"./_invoke":66}],71:[function(require,module,exports){
+},{"./_cof":62,"./_ctx":64,"./_dom-create":66,"./_global":69,"./_html":71,"./_invoke":73}],78:[function(require,module,exports){
 // 7.1.1 ToPrimitive(input [, PreferredType])
 var isObject = require('./_is-object');
 // instead of the ES6 spec version, we didn't implement @@toPrimitive case
@@ -7443,14 +8266,14 @@ module.exports = function(it, S){
   if(!S && typeof (fn = it.toString) == 'function' && !isObject(val = fn.call(it)))return val;
   throw TypeError("Can't convert object to primitive value");
 };
-},{"./_is-object":67}],72:[function(require,module,exports){
+},{"./_is-object":74}],79:[function(require,module,exports){
 var $export = require('./_export')
   , $task   = require('./_task');
 $export($export.G + $export.B, {
   setImmediate:   $task.set,
   clearImmediate: $task.clear
 });
-},{"./_export":60,"./_task":70}],73:[function(require,module,exports){
+},{"./_export":67,"./_task":77}],80:[function(require,module,exports){
 // Top level file is just a mixin of submodules & constants
 'use strict';
 
@@ -7466,7 +8289,7 @@ assign(pako, deflate, inflate, constants);
 
 module.exports = pako;
 
-},{"./lib/deflate":74,"./lib/inflate":75,"./lib/utils/common":76,"./lib/zlib/constants":79}],74:[function(require,module,exports){
+},{"./lib/deflate":81,"./lib/inflate":82,"./lib/utils/common":83,"./lib/zlib/constants":86}],81:[function(require,module,exports){
 'use strict';
 
 
@@ -7868,7 +8691,7 @@ exports.deflate = deflate;
 exports.deflateRaw = deflateRaw;
 exports.gzip = gzip;
 
-},{"./utils/common":76,"./utils/strings":77,"./zlib/deflate":81,"./zlib/messages":86,"./zlib/zstream":88}],75:[function(require,module,exports){
+},{"./utils/common":83,"./utils/strings":84,"./zlib/deflate":88,"./zlib/messages":93,"./zlib/zstream":95}],82:[function(require,module,exports){
 'use strict';
 
 
@@ -8288,7 +9111,7 @@ exports.inflate = inflate;
 exports.inflateRaw = inflateRaw;
 exports.ungzip  = inflate;
 
-},{"./utils/common":76,"./utils/strings":77,"./zlib/constants":79,"./zlib/gzheader":82,"./zlib/inflate":84,"./zlib/messages":86,"./zlib/zstream":88}],76:[function(require,module,exports){
+},{"./utils/common":83,"./utils/strings":84,"./zlib/constants":86,"./zlib/gzheader":89,"./zlib/inflate":91,"./zlib/messages":93,"./zlib/zstream":95}],83:[function(require,module,exports){
 'use strict';
 
 
@@ -8392,7 +9215,7 @@ exports.setTyped = function (on) {
 
 exports.setTyped(TYPED_OK);
 
-},{}],77:[function(require,module,exports){
+},{}],84:[function(require,module,exports){
 // String encode/decode helpers
 'use strict';
 
@@ -8579,7 +9402,7 @@ exports.utf8border = function (buf, max) {
   return (pos + _utf8len[buf[pos]] > max) ? pos : max;
 };
 
-},{"./common":76}],78:[function(require,module,exports){
+},{"./common":83}],85:[function(require,module,exports){
 'use strict';
 
 // Note: adler32 takes 12% for level 0 and 2% for level 6.
@@ -8613,7 +9436,7 @@ function adler32(adler, buf, len, pos) {
 
 module.exports = adler32;
 
-},{}],79:[function(require,module,exports){
+},{}],86:[function(require,module,exports){
 'use strict';
 
 
@@ -8665,7 +9488,7 @@ module.exports = {
   //Z_NULL:                 null // Use -1 or null inline, depending on var type
 };
 
-},{}],80:[function(require,module,exports){
+},{}],87:[function(require,module,exports){
 'use strict';
 
 // Note: we can't get significant speed boost here.
@@ -8708,7 +9531,7 @@ function crc32(crc, buf, len, pos) {
 
 module.exports = crc32;
 
-},{}],81:[function(require,module,exports){
+},{}],88:[function(require,module,exports){
 'use strict';
 
 var utils   = require('../utils/common');
@@ -10565,7 +11388,7 @@ exports.deflatePrime = deflatePrime;
 exports.deflateTune = deflateTune;
 */
 
-},{"../utils/common":76,"./adler32":78,"./crc32":80,"./messages":86,"./trees":87}],82:[function(require,module,exports){
+},{"../utils/common":83,"./adler32":85,"./crc32":87,"./messages":93,"./trees":94}],89:[function(require,module,exports){
 'use strict';
 
 
@@ -10607,7 +11430,7 @@ function GZheader() {
 
 module.exports = GZheader;
 
-},{}],83:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 'use strict';
 
 // See state defs from inflate.js
@@ -10935,7 +11758,7 @@ module.exports = function inflate_fast(strm, start) {
   return;
 };
 
-},{}],84:[function(require,module,exports){
+},{}],91:[function(require,module,exports){
 'use strict';
 
 
@@ -12475,7 +13298,7 @@ exports.inflateSyncPoint = inflateSyncPoint;
 exports.inflateUndermine = inflateUndermine;
 */
 
-},{"../utils/common":76,"./adler32":78,"./crc32":80,"./inffast":83,"./inftrees":85}],85:[function(require,module,exports){
+},{"../utils/common":83,"./adler32":85,"./crc32":87,"./inffast":90,"./inftrees":92}],92:[function(require,module,exports){
 'use strict';
 
 
@@ -12802,7 +13625,7 @@ module.exports = function inflate_table(type, lens, lens_index, codes, table, ta
   return 0;
 };
 
-},{"../utils/common":76}],86:[function(require,module,exports){
+},{"../utils/common":83}],93:[function(require,module,exports){
 'use strict';
 
 module.exports = {
@@ -12817,7 +13640,7 @@ module.exports = {
   '-6':   'incompatible version' /* Z_VERSION_ERROR (-6) */
 };
 
-},{}],87:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 'use strict';
 
 
@@ -14021,7 +14844,7 @@ exports._tr_flush_block  = _tr_flush_block;
 exports._tr_tally = _tr_tally;
 exports._tr_align = _tr_align;
 
-},{"../utils/common":76}],88:[function(require,module,exports){
+},{"../utils/common":83}],95:[function(require,module,exports){
 'use strict';
 
 
@@ -14052,7 +14875,7 @@ function ZStream() {
 
 module.exports = ZStream;
 
-},{}],89:[function(require,module,exports){
+},{}],96:[function(require,module,exports){
 'use strict';
 var immediate = require('immediate');
 
@@ -14307,7 +15130,7 @@ function race(iterable) {
   }
 }
 
-},{"immediate":13}],90:[function(require,module,exports){
+},{"immediate":18}],97:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -14354,7 +15177,7 @@ function nextTick(fn, arg1, arg2, arg3) {
 }
 
 }).call(this,require('_process'))
-},{"_process":91}],91:[function(require,module,exports){
+},{"_process":98}],98:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -14536,10 +15359,10 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],92:[function(require,module,exports){
+},{}],99:[function(require,module,exports){
 module.exports = require("./lib/_stream_duplex.js")
 
-},{"./lib/_stream_duplex.js":93}],93:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":100}],100:[function(require,module,exports){
 // a duplex stream is just a stream that is both readable and writable.
 // Since JS doesn't have multiple prototypal inheritance, this class
 // prototypally inherits from Readable, and then parasitically from
@@ -14615,7 +15438,7 @@ function forEach(xs, f) {
     f(xs[i], i);
   }
 }
-},{"./_stream_readable":95,"./_stream_writable":97,"core-util-is":5,"inherits":14,"process-nextick-args":90}],94:[function(require,module,exports){
+},{"./_stream_readable":102,"./_stream_writable":104,"core-util-is":9,"inherits":19,"process-nextick-args":97}],101:[function(require,module,exports){
 // a passthrough stream.
 // basically just the most minimal sort of Transform stream.
 // Every written chunk gets output as-is.
@@ -14642,7 +15465,7 @@ function PassThrough(options) {
 PassThrough.prototype._transform = function (chunk, encoding, cb) {
   cb(null, chunk);
 };
-},{"./_stream_transform":96,"core-util-is":5,"inherits":14}],95:[function(require,module,exports){
+},{"./_stream_transform":103,"core-util-is":9,"inherits":19}],102:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -15586,7 +16409,7 @@ function indexOf(xs, x) {
   return -1;
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":93,"./internal/streams/BufferList":98,"_process":91,"buffer":4,"buffer-shims":3,"core-util-is":5,"events":6,"inherits":14,"isarray":16,"process-nextick-args":90,"string_decoder/":115,"util":2}],96:[function(require,module,exports){
+},{"./_stream_duplex":100,"./internal/streams/BufferList":105,"_process":98,"buffer":8,"buffer-shims":6,"core-util-is":9,"events":10,"inherits":19,"isarray":23,"process-nextick-args":97,"string_decoder/":122,"util":5}],103:[function(require,module,exports){
 // a transform stream is a readable/writable stream where you do
 // something with the data.  Sometimes it's called a "filter",
 // but that's not a great name for it, since that implies a thing where
@@ -15769,7 +16592,7 @@ function done(stream, er, data) {
 
   return stream.push(null);
 }
-},{"./_stream_duplex":93,"core-util-is":5,"inherits":14}],97:[function(require,module,exports){
+},{"./_stream_duplex":100,"core-util-is":9,"inherits":19}],104:[function(require,module,exports){
 (function (process){
 // A bit simpler than readable streams.
 // Implement an async ._write(chunk, encoding, cb), and it'll handle all
@@ -16326,7 +17149,7 @@ function CorkedRequest(state) {
   };
 }
 }).call(this,require('_process'))
-},{"./_stream_duplex":93,"_process":91,"buffer":4,"buffer-shims":3,"core-util-is":5,"events":6,"inherits":14,"process-nextick-args":90,"util-deprecate":116}],98:[function(require,module,exports){
+},{"./_stream_duplex":100,"_process":98,"buffer":8,"buffer-shims":6,"core-util-is":9,"events":10,"inherits":19,"process-nextick-args":97,"util-deprecate":124}],105:[function(require,module,exports){
 'use strict';
 
 var Buffer = require('buffer').Buffer;
@@ -16391,10 +17214,10 @@ BufferList.prototype.concat = function (n) {
   }
   return ret;
 };
-},{"buffer":4,"buffer-shims":3}],99:[function(require,module,exports){
+},{"buffer":8,"buffer-shims":6}],106:[function(require,module,exports){
 module.exports = require("./lib/_stream_passthrough.js")
 
-},{"./lib/_stream_passthrough.js":94}],100:[function(require,module,exports){
+},{"./lib/_stream_passthrough.js":101}],107:[function(require,module,exports){
 (function (process){
 var Stream = (function (){
   try {
@@ -16414,13 +17237,13 @@ if (!process.browser && process.env.READABLE_STREAM === 'disable' && Stream) {
 }
 
 }).call(this,require('_process'))
-},{"./lib/_stream_duplex.js":93,"./lib/_stream_passthrough.js":94,"./lib/_stream_readable.js":95,"./lib/_stream_transform.js":96,"./lib/_stream_writable.js":97,"_process":91}],101:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":100,"./lib/_stream_passthrough.js":101,"./lib/_stream_readable.js":102,"./lib/_stream_transform.js":103,"./lib/_stream_writable.js":104,"_process":98}],108:[function(require,module,exports){
 module.exports = require("./lib/_stream_transform.js")
 
-},{"./lib/_stream_transform.js":96}],102:[function(require,module,exports){
+},{"./lib/_stream_transform.js":103}],109:[function(require,module,exports){
 module.exports = require("./lib/_stream_writable.js")
 
-},{"./lib/_stream_writable.js":97}],103:[function(require,module,exports){
+},{"./lib/_stream_writable.js":104}],110:[function(require,module,exports){
 (function (process,global){
 // Copyright (c) Microsoft, All rights reserved. See License.txt in the project root for license information.
 
@@ -28812,7 +29635,7 @@ var ReactiveTest = Rx.ReactiveTest = {
 }.call(this));
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":91}],104:[function(require,module,exports){
+},{"_process":98}],111:[function(require,module,exports){
 var VNode = require('./vnode');
 var is = require('./is');
 
@@ -28848,7 +29671,7 @@ module.exports = function h(sel, b, c) {
   return VNode(sel, data, children, text, undefined);
 };
 
-},{"./is":106,"./vnode":113}],105:[function(require,module,exports){
+},{"./is":113,"./vnode":120}],112:[function(require,module,exports){
 function createElement(tagName){
   return document.createElement(tagName);
 }
@@ -28904,13 +29727,13 @@ module.exports = {
   setTextContent: setTextContent
 };
 
-},{}],106:[function(require,module,exports){
+},{}],113:[function(require,module,exports){
 module.exports = {
   array: Array.isArray,
   primitive: function(s) { return typeof s === 'string' || typeof s === 'number'; },
 };
 
-},{}],107:[function(require,module,exports){
+},{}],114:[function(require,module,exports){
 var NamespaceURIs = {
   "xlink": "http://www.w3.org/1999/xlink"
 };
@@ -28963,7 +29786,7 @@ function updateAttrs(oldVnode, vnode) {
 
 module.exports = {create: updateAttrs, update: updateAttrs};
 
-},{}],108:[function(require,module,exports){
+},{}],115:[function(require,module,exports){
 function updateClass(oldVnode, vnode) {
   var cur, name, elm = vnode.elm,
       oldClass = oldVnode.data.class,
@@ -28988,7 +29811,7 @@ function updateClass(oldVnode, vnode) {
 
 module.exports = {create: updateClass, update: updateClass};
 
-},{}],109:[function(require,module,exports){
+},{}],116:[function(require,module,exports){
 function invokeHandler(handler, vnode, event) {
   if (typeof handler === "function") {
     // call function handler
@@ -29091,7 +29914,7 @@ module.exports = {
   destroy: updateEventListeners
 };
 
-},{}],110:[function(require,module,exports){
+},{}],117:[function(require,module,exports){
 function updateProps(oldVnode, vnode) {
   var key, cur, old, elm = vnode.elm,
       oldProps = oldVnode.data.props, props = vnode.data.props;
@@ -29116,7 +29939,7 @@ function updateProps(oldVnode, vnode) {
 
 module.exports = {create: updateProps, update: updateProps};
 
-},{}],111:[function(require,module,exports){
+},{}],118:[function(require,module,exports){
 var raf = (typeof window !== 'undefined' && window.requestAnimationFrame) || setTimeout;
 var nextFrame = function(fn) { raf(function() { raf(fn); }); };
 
@@ -29187,7 +30010,7 @@ function applyRemoveStyle(vnode, rm) {
 
 module.exports = {create: updateStyle, update: updateStyle, destroy: applyDestroyStyle, remove: applyRemoveStyle};
 
-},{}],112:[function(require,module,exports){
+},{}],119:[function(require,module,exports){
 // jshint newcap: false
 /* global require, module, document, Node */
 'use strict';
@@ -29449,14 +30272,14 @@ function init(modules, api) {
 
 module.exports = {init: init};
 
-},{"./htmldomapi":105,"./is":106,"./vnode":113}],113:[function(require,module,exports){
+},{"./htmldomapi":112,"./is":113,"./vnode":120}],120:[function(require,module,exports){
 module.exports = function(sel, data, children, text, elm) {
   var key = data === undefined ? undefined : data.key;
   return {sel: sel, data: data, children: children,
           text: text, elm: elm, key: key};
 };
 
-},{}],114:[function(require,module,exports){
+},{}],121:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -29585,7 +30408,7 @@ Stream.prototype.pipe = function(dest, options) {
   return dest;
 };
 
-},{"events":6,"inherits":14,"readable-stream/duplex.js":92,"readable-stream/passthrough.js":99,"readable-stream/readable.js":100,"readable-stream/transform.js":101,"readable-stream/writable.js":102}],115:[function(require,module,exports){
+},{"events":10,"inherits":19,"readable-stream/duplex.js":99,"readable-stream/passthrough.js":106,"readable-stream/readable.js":107,"readable-stream/transform.js":108,"readable-stream/writable.js":109}],122:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -29808,7 +30631,75 @@ function base64DetectIncompleteChar(buffer) {
   this.charLength = this.charReceived ? 3 : 0;
 }
 
-},{"buffer":4}],116:[function(require,module,exports){
+},{"buffer":8}],123:[function(require,module,exports){
+
+/**
+ * @module typedarray-polyfill
+ */
+
+var methods = ['values', 'sort', 'some', 'slice', 'reverse', 'reduceRight', 'reduce', 'map', 'keys', 'lastIndexOf', 'join', 'indexOf', 'includes', 'forEach', 'find', 'findIndex', 'copyWithin', 'filter', 'entries', 'every', 'fill'];
+
+if (typeof Int8Array !== 'undefined') {
+    for (var i = methods.length; i--;) {
+        var method = methods[i];
+        if (!Int8Array.prototype[method]) Int8Array.prototype[method] = Array.prototype[method];
+    }
+}
+if (typeof Uint8Array !== 'undefined') {
+    for (var i = methods.length; i--;) {
+        var method = methods[i];
+        if (!Uint8Array.prototype[method]) Uint8Array.prototype[method] = Array.prototype[method];
+    }
+}
+if (typeof Uint8ClampedArray !== 'undefined') {
+    for (var i = methods.length; i--;) {
+        var method = methods[i];
+        if (!Uint8ClampedArray.prototype[method]) Uint8ClampedArray.prototype[method] = Array.prototype[method];
+    }
+}
+if (typeof Int16Array !== 'undefined') {
+    for (var i = methods.length; i--;) {
+        var method = methods[i];
+        if (!Int16Array.prototype[method]) Int16Array.prototype[method] = Array.prototype[method];
+    }
+}
+if (typeof Uint16Array !== 'undefined') {
+    for (var i = methods.length; i--;) {
+        var method = methods[i];
+        if (!Uint16Array.prototype[method]) Uint16Array.prototype[method] = Array.prototype[method];
+    }
+}
+if (typeof Int32Array !== 'undefined') {
+    for (var i = methods.length; i--;) {
+        var method = methods[i];
+        if (!Int32Array.prototype[method]) Int32Array.prototype[method] = Array.prototype[method];
+    }
+}
+if (typeof Uint32Array !== 'undefined') {
+    for (var i = methods.length; i--;) {
+        var method = methods[i];
+        if (!Uint32Array.prototype[method]) Uint32Array.prototype[method] = Array.prototype[method];
+    }
+}
+if (typeof Float32Array !== 'undefined') {
+    for (var i = methods.length; i--;) {
+        var method = methods[i];
+        if (!Float32Array.prototype[method]) Float32Array.prototype[method] = Array.prototype[method];
+    }
+}
+if (typeof Float64Array !== 'undefined') {
+    for (var i = methods.length; i--;) {
+        var method = methods[i];
+        if (!Float64Array.prototype[method]) Float64Array.prototype[method] = Array.prototype[method];
+    }
+}
+if (typeof TypedArray !== 'undefined') {
+    for (var i = methods.length; i--;) {
+        var method = methods[i];
+        if (!TypedArray.prototype[method]) TypedArray.prototype[method] = Array.prototype[method];
+    }
+}
+},{}],124:[function(require,module,exports){
 (function (global){
 
 /**
@@ -29879,16 +30770,16 @@ function config (name) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],117:[function(require,module,exports){
-arguments[4][14][0].apply(exports,arguments)
-},{"dup":14}],118:[function(require,module,exports){
+},{}],125:[function(require,module,exports){
+arguments[4][19][0].apply(exports,arguments)
+},{"dup":19}],126:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],119:[function(require,module,exports){
+},{}],127:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -30478,7 +31369,7 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":118,"_process":91,"inherits":117}],120:[function(require,module,exports){
+},{"./support/isBuffer":126,"_process":98,"inherits":125}],128:[function(require,module,exports){
 "use strict";
 
 /**
@@ -30612,14 +31503,14 @@ WaveformDataArrayBufferAdapter.prototype = {
   }
 };
 
-},{}],121:[function(require,module,exports){
+},{}],129:[function(require,module,exports){
 "use strict";
 
 module.exports = {
   "arraybuffer": require("./arraybuffer.js"),
   "object": require("./object.js")
 };
-},{"./arraybuffer.js":120,"./object.js":122}],122:[function(require,module,exports){
+},{"./arraybuffer.js":128,"./object.js":130}],130:[function(require,module,exports){
 "use strict";
 
 /**
@@ -30757,7 +31648,7 @@ WaveformDataObjectAdapter.prototype = {
   }
 };
 
-},{}],123:[function(require,module,exports){
+},{}],131:[function(require,module,exports){
 'use strict';
 
 var WaveformData = require('../../waveform-data.js');
@@ -30830,7 +31721,7 @@ module.exports = function getAudioDecoder(options, callback){
   };
 };
 
-},{"../../waveform-data.js":128}],124:[function(require,module,exports){
+},{"../../waveform-data.js":136}],132:[function(require,module,exports){
 "use strict";
 
 var audioDecoder = require('./audiodecoder.js');
@@ -30912,7 +31803,7 @@ function fromAudioObjectBuilder(audio_context, raw_response, options, callback){
 
 module.exports = fromAudioObjectBuilder;
 
-},{"./audiodecoder.js":123}],125:[function(require,module,exports){
+},{"./audiodecoder.js":131}],133:[function(require,module,exports){
 "use strict";
 
 var WaveformDataSegment = require("./segment.js");
@@ -31571,7 +32462,7 @@ WaveformData.adapter = function WaveformDataAdapter(response_data){
   this.data = response_data;
 };
 
-},{"./point.js":126,"./segment.js":127}],126:[function(require,module,exports){
+},{"./point.js":134,"./segment.js":135}],134:[function(require,module,exports){
 "use strict";
 
 /**
@@ -31639,7 +32530,7 @@ WaveformDataPoint.prototype = {
     return this.context.in_offset(this.timeStamp);
   }
 };
-},{}],127:[function(require,module,exports){
+},{}],135:[function(require,module,exports){
 "use strict";
 
 /**
@@ -31873,7 +32764,7 @@ WaveformDataSegment.prototype = {
     return this.visible ? this.context.offsetValues(this.offset_start, this.offset_length, 1) : [];
   }
 };
-},{}],128:[function(require,module,exports){
+},{}],136:[function(require,module,exports){
 "use strict";
 
 var WaveformData = require("./lib/core");
@@ -31881,14 +32772,14 @@ WaveformData.adapters = require("./lib/adapters");
 
 module.exports = WaveformData;
 
-},{"./lib/adapters":121,"./lib/core":125}],129:[function(require,module,exports){
+},{"./lib/adapters":129,"./lib/core":133}],137:[function(require,module,exports){
 "use strict";
 
 var webAudioBuilder = require("./lib/builders/webaudio.js");
 
 module.exports = webAudioBuilder;
 
-},{"./lib/builders/webaudio.js":124}],130:[function(require,module,exports){
+},{"./lib/builders/webaudio.js":132}],138:[function(require,module,exports){
 'use strict';
 
 const obj = require('iblokz/common/obj');
@@ -31898,6 +32789,8 @@ const initial = {
 	audio: false,
 	mic: false,
 	lastAffected: '0',
+	baseLength: 0,
+	quantize: false,
 	channels: {
 		0: {process: 'empty', gain: 0.5, layers: 0},
 		1: {process: 'empty', gain: 0.5, layers: 0},
@@ -31954,8 +32847,17 @@ const clear = channel => state => Object.assign(obj.patch(state, ['channels', ch
 	process: 'empty',
 	layers: 0
 }), {
-	lastAffected: channel
+	lastAffected: channel,
+	// if all are clear set baseLength to 0
+	baseLength: (Object.keys(state.channels)
+		.filter(c => c !== channel)
+		.filter(c => state.channels[c].layers > 0)
+		.length > 0)
+		? state.baseLength
+		: 0
 });
+
+const setBaseLength = baseLength => state => Object.assign({}, state, {baseLength});
 
 module.exports = {
 	initial,
@@ -31963,15 +32865,18 @@ module.exports = {
 	change,
 	playRec,
 	stop,
-	clear
+	clear,
+	setBaseLength
 };
 
-},{"iblokz/common/obj":11}],131:[function(require,module,exports){
+},{"iblokz/common/obj":16}],139:[function(require,module,exports){
 'use strict';
 
 // lib
 const Rx = require('rx');
 const $ = Rx.Observable;
+
+const bufferUtils = require('audio-buffer-utils');
 
 // iblokz
 const vdom = require('iblokz/adapters/vdom');
@@ -32063,23 +32968,28 @@ let buffers = {};
 let recording = {};
 let blob$ = new Rx.Subject();
 
-blob$
-	.filter(({blob}) => blob !== false)
-	// .map(blob => (console.log({blob}), blob))
-	.flatMap(({channel, blob}) => file.load(blob, 'arrayBuffer').map(arrayBuffer => ({channel, arrayBuffer})))
-	// .map(arrayBuffer => (console.log({arrayBuffer}), arrayBuffer))
-	.subscribe(({channel, arrayBuffer}) =>
-		a.context.decodeAudioData(arrayBuffer).then(buffer => {
-			console.log(buffer);
-			let bufferSource = a.context.createBufferSource();
-			bufferSource.buffer = buffer;
-			bufferSource.loop = true;
-			bufferSource.connect(vca.node);
-			bufferSource.start();
-			if (!buffers[channel]) buffers[channel] = [];
-			buffers[channel].push(bufferSource);
-		}, err => console.log({err, arrayBuffer}))
-	);
+const addNewSample = (channel, buffer, baseLength, quantize = false) => {
+	// quantize buffer
+	let length = buffer.length;
+	if (quantize) {
+		if (baseLength === 0) {
+			length = Number(length / 4).toFixed() * 4;
+			actions.setBaseLength(length);
+		} else {
+			let quant = baseLength / 4;
+			length = Number(length / quant).toFixed() * quant;
+		}
+	}
+	console.log({buffer, length, baseLength});
+	let resizedBuffer = bufferUtils.resize(buffer, length);
+	let bufferSource = a.context.createBufferSource();
+	bufferSource.buffer = resizedBuffer;
+	bufferSource.loop = true;
+	bufferSource.connect(vca.node);
+	bufferSource.start();
+	if (!buffers[channel]) buffers[channel] = [];
+	buffers[channel].push(bufferSource);
+};
 
 [0, 1, 2, 3].map(channel =>
 	state$.distinctUntilChanged(state => state.channels[channel].process)
@@ -32088,7 +32998,10 @@ blob$
 				if (state.channels[channel].process === 'record' || state.channels[channel].process === 'overdub') {
 					console.log(rec.record, source.stream);
 					recording[channel] = rec.record(source.stream, a.context);
-					recording[channel].data$.subscribe(blob => blob$.onNext({blob, channel}));
+					recording[channel].data$
+						.flatMap(data => file.load(data, 'arrayBuffer'))
+						.flatMap(arrayBuffer => $.fromPromise(a.context.decodeAudioData(arrayBuffer)))
+						.subscribe(buffer => addNewSample(channel, buffer, state.baseLength, state.quantize));
 				} else if (state.channels[channel].process === 'play') {
 					if (recording[channel]) {
 						recording[channel].stop();
@@ -32176,7 +33089,7 @@ if (midi) midi.msg$
 		}
 	});
 
-},{"./actions":130,"./ui":133,"./util/app":134,"./util/audio":135,"./util/file":136,"./util/gfx":137,"./util/midi":138,"./util/recorder":139,"iblokz/adapters/vdom":8,"iblokz/common/arr":9,"iblokz/common/obj":11,"rx":103}],132:[function(require,module,exports){
+},{"./actions":138,"./ui":141,"./util/app":142,"./util/audio":143,"./util/file":144,"./util/gfx":145,"./util/midi":146,"./util/recorder":147,"audio-buffer-utils":1,"iblokz/adapters/vdom":13,"iblokz/common/arr":14,"iblokz/common/obj":16,"rx":110}],140:[function(require,module,exports){
 'use strict';
 
 const {section, button, span, i, input} = require('iblokz/adapters/vdom');
@@ -32202,7 +33115,7 @@ module.exports = ({params, chan, actions}) => section('.channel', [
 	}, '')
 ]);
 
-},{"iblokz/adapters/vdom":8}],133:[function(require,module,exports){
+},{"iblokz/adapters/vdom":13}],141:[function(require,module,exports){
 'use strict';
 
 // dom
@@ -32231,6 +33144,16 @@ module.exports = ({state, actions}) => section('#ui', [
 				}
 			})),
 			span('Audio Input')
+		]),
+		button('.toggle[title="Quantize On/Off"]', {on: {click: () => actions.toggle('quantize')}}, [
+			i(({
+				class: {
+					'fa': true,
+					'fa-check-square-o': state.quantize,
+					'fa-square-o': !state.quantize
+				}
+			})),
+			span('Quantize')
 		])
 	]),
 	section('.channels',
@@ -32239,7 +33162,7 @@ module.exports = ({state, actions}) => section('#ui', [
 	canvas('#visual')
 ]);
 
-},{"./channel":132,"iblokz/adapters/vdom":8}],134:[function(require,module,exports){
+},{"./channel":140,"iblokz/adapters/vdom":13}],142:[function(require,module,exports){
 'use strict';
 
 // lib
@@ -32266,7 +33189,7 @@ module.exports = {
 	adapt
 };
 
-},{"iblokz/common/arr":9,"iblokz/common/obj":11,"rx":103}],135:[function(require,module,exports){
+},{"iblokz/common/arr":14,"iblokz/common/obj":16,"rx":110}],143:[function(require,module,exports){
 'use strict';
 
 const arr = require('iblokz/common/arr');
@@ -32435,7 +33358,7 @@ module.exports = {
 	vca: prefs => apply(create('vca', context), prefs)
 };
 
-},{"iblokz/common/arr":9,"iblokz/common/fn":10,"iblokz/common/obj":11}],136:[function(require,module,exports){
+},{"iblokz/common/arr":14,"iblokz/common/fn":15,"iblokz/common/obj":16}],144:[function(require,module,exports){
 'use strict';
 
 const Rx = require('rx');
@@ -32487,7 +33410,7 @@ module.exports = {
 	save
 };
 
-},{"file-saver":7,"iblokz/common/fn":10,"iblokz/common/obj":11,"jszip":26,"rx":103}],137:[function(require,module,exports){
+},{"file-saver":11,"iblokz/common/fn":15,"iblokz/common/obj":16,"jszip":33,"rx":110}],145:[function(require,module,exports){
 'use strict';
 
 const webAudioBuilder = require('waveform-data/webaudio');
@@ -32550,7 +33473,7 @@ module.exports = {
 	visualize
 };
 
-},{"../util/audio":135,"waveform-data/webaudio":129}],138:[function(require,module,exports){
+},{"../util/audio":143,"waveform-data/webaudio":137}],146:[function(require,module,exports){
 'use strict';
 
 const Rx = require('rx');
@@ -32684,7 +33607,7 @@ const init = () => {
 
 module.exports = init;
 
-},{"rx":103}],139:[function(require,module,exports){
+},{"rx":110}],147:[function(require,module,exports){
 'use strict';
 
 // lib
@@ -32748,4 +33671,4 @@ module.exports = {
 	record
 };
 
-},{"rx":103}]},{},[131]);
+},{"rx":110}]},{},[139]);

@@ -4,6 +4,8 @@
 const Rx = require('rx');
 const $ = Rx.Observable;
 
+const bufferUtils = require('audio-buffer-utils');
+
 // iblokz
 const vdom = require('iblokz/adapters/vdom');
 const obj = require('iblokz/common/obj');
@@ -94,23 +96,28 @@ let buffers = {};
 let recording = {};
 let blob$ = new Rx.Subject();
 
-blob$
-	.filter(({blob}) => blob !== false)
-	// .map(blob => (console.log({blob}), blob))
-	.flatMap(({channel, blob}) => file.load(blob, 'arrayBuffer').map(arrayBuffer => ({channel, arrayBuffer})))
-	// .map(arrayBuffer => (console.log({arrayBuffer}), arrayBuffer))
-	.subscribe(({channel, arrayBuffer}) =>
-		a.context.decodeAudioData(arrayBuffer).then(buffer => {
-			console.log(buffer);
-			let bufferSource = a.context.createBufferSource();
-			bufferSource.buffer = buffer;
-			bufferSource.loop = true;
-			bufferSource.connect(vca.node);
-			bufferSource.start();
-			if (!buffers[channel]) buffers[channel] = [];
-			buffers[channel].push(bufferSource);
-		}, err => console.log({err, arrayBuffer}))
-	);
+const addNewSample = (channel, buffer, baseLength, quantize = false) => {
+	// quantize buffer
+	let length = buffer.length;
+	if (quantize) {
+		if (baseLength === 0) {
+			length = Number(length / 4).toFixed() * 4;
+			actions.setBaseLength(length);
+		} else {
+			let quant = baseLength / 4;
+			length = Number(length / quant).toFixed() * quant;
+		}
+	}
+	console.log({buffer, length, baseLength});
+	let resizedBuffer = bufferUtils.resize(buffer, length);
+	let bufferSource = a.context.createBufferSource();
+	bufferSource.buffer = resizedBuffer;
+	bufferSource.loop = true;
+	bufferSource.connect(vca.node);
+	bufferSource.start();
+	if (!buffers[channel]) buffers[channel] = [];
+	buffers[channel].push(bufferSource);
+};
 
 [0, 1, 2, 3].map(channel =>
 	state$.distinctUntilChanged(state => state.channels[channel].process)
@@ -119,7 +126,10 @@ blob$
 				if (state.channels[channel].process === 'record' || state.channels[channel].process === 'overdub') {
 					console.log(rec.record, source.stream);
 					recording[channel] = rec.record(source.stream, a.context);
-					recording[channel].data$.subscribe(blob => blob$.onNext({blob, channel}));
+					recording[channel].data$
+						.flatMap(data => file.load(data, 'arrayBuffer'))
+						.flatMap(arrayBuffer => $.fromPromise(a.context.decodeAudioData(arrayBuffer)))
+						.subscribe(buffer => addNewSample(channel, buffer, state.baseLength, state.quantize));
 				} else if (state.channels[channel].process === 'play') {
 					if (recording[channel]) {
 						recording[channel].stop();
