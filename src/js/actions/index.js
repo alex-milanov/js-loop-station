@@ -7,6 +7,8 @@ const initial = {
 	audio: false,
 	mic: false,
 	lastAffected: '0',
+	baseLength: 0,
+	quantize: false,
 	channels: {
 		0: {process: 'empty', gain: 0.5, layers: 0},
 		1: {process: 'empty', gain: 0.5, layers: 0},
@@ -63,8 +65,17 @@ const clear = channel => state => Object.assign(obj.patch(state, ['channels', ch
 	process: 'empty',
 	layers: 0
 }), {
-	lastAffected: channel
+	lastAffected: channel,
+	// if all are clear set baseLength to 0
+	baseLength: (Object.keys(state.channels)
+		.filter(c => c !== channel)
+		.filter(c => state.channels[c].layers > 0)
+		.length > 0)
+		? state.baseLength
+		: 0
 });
+
+const setBaseLength = baseLength => state => Object.assign({}, state, {baseLength});
 
 module.exports = {
 	initial,
@@ -72,5 +83,6 @@ module.exports = {
 	change,
 	playRec,
 	stop,
-	clear
+	clear,
+	setBaseLength
 };
