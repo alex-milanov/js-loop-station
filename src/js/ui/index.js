@@ -26,6 +26,16 @@ module.exports = ({state, actions}) => section('#ui', [
 				}
 			})),
 			span('Audio Input')
+		]),
+		button('.toggle[title="Quantize On/Off"]', {on: {click: () => actions.toggle('quantize')}}, [
+			i(({
+				class: {
+					'fa': true,
+					'fa-check-square-o': state.quantize,
+					'fa-square-o': !state.quantize
+				}
+			})),
+			span('Quantize')
 		])
 	]),
 	section('.channels',
