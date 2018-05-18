@@ -4,8 +4,7 @@
 const Rx = require('rx');
 const $ = Rx.Observable;
 
-const arr = require('iblokz/common/arr');
-const obj = require('iblokz/common/obj');
+const {arr, obj} = require('iblokz-data');
 
 const adapt = o => Object.keys(o).filter(key => key !== 'initial').reduce((o2, key) => Object.assign({}, o2,
 	(o[key] instanceof Function) && obj.keyValue(key, function() {

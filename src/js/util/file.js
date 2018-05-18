@@ -4,8 +4,7 @@ const Rx = require('rx');
 const $ = Rx.Observable;
 const fileSaver = require('file-saver');
 const jsZip = require("jszip");
-const fn = require("iblokz/common/fn");
-const obj = require("iblokz/common/obj");
+const {arr, obj, fn} = require('iblokz-data');
 
 const load = (file, readAs = 'text') => $.create(stream => {
 	const fr = new FileReader();

@@ -1,7 +1,7 @@
 'use strict';
 
 // dom
-const {header, section, button, span, h1, i, hr, canvas, input} = require('iblokz/adapters/vdom');
+const {header, section, button, span, h1, i, hr, canvas, input} = require('iblokz-snabbdom-helpers');
 // components
 const channel = require('./channel');
 

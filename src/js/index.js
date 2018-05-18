@@ -7,9 +7,8 @@ const $ = Rx.Observable;
 const bufferUtils = require('audio-buffer-utils');
 
 // iblokz
-const vdom = require('iblokz/adapters/vdom');
-const obj = require('iblokz/common/obj');
-const arr = require('iblokz/common/arr');
+const vdom = require('iblokz-snabbdom-helpers');
+const {obj, arr} = require('iblokz-data');
 
 // util
 const a = require('./util/audio');

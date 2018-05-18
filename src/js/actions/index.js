@@ -1,6 +1,6 @@
 'use strict';
 
-const obj = require('iblokz/common/obj');
+const {arr, obj} = require('iblokz-data');
 
 // initial
 const initial = {

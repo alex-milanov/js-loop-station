@@ -1,6 +1,6 @@
 'use strict';
 
-const {section, button, span, i, input} = require('iblokz/adapters/vdom');
+const {section, button, span, i, input} = require('iblokz-snabbdom-helpers');
 
 module.exports = ({params, chan, actions}) => section('.channel', [
 	button('.stop', {
