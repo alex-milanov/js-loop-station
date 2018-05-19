@@ -17,7 +17,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "audio-buffer-utils": "^3.1.2",
+    "audio-buffer-utils": "github:audiojs/audio-buffer-utils",
     "bourbon": "^4.2.7",
     "bourbon-neat": "^1.8.0",
     "file-saver": "^1.3.3",
@@ -38,7 +38,7 @@
     "eslint-config-google": "^0.6.0",
     "fs-extra": "^1.0.0",
     "livereload": "^0.6.0",
-    "node-sass": "^4.1.1",
+    "node-sass": "^4.9.0",
     "node-serve": "0.0.3",
     "watchify": "^3.8.0"
   }

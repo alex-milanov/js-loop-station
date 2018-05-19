@@ -2408,6 +2408,7 @@ button i.fa + span {
         outline: none; }
 
 #ui canvas#visual {
+  border-radius: 7px;
   display: block;
   clear: both;
   float: left;
@@ -2423,6 +2424,7 @@ button i.fa + span {
     width: 176px;
     display: inline-block;
     box-shadow: 1px 1px 10px #ccc;
+    border-radius: 7px;
     margin: 10px; }
     #ui .channels .channel button.stop {
       -webkit-user-select: none;

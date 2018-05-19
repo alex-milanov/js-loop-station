@@ -22,6 +22,7 @@ const app = require('./util/app');
 let actions = app.adapt(require('./actions'));
 let ui = require('./ui');
 let actions$;
+const state$ = new Rx.BehaviorSubject();
 
 // hot reloading
 if (module.hot) {
@@ -42,11 +43,16 @@ if (module.hot) {
 }
 
 // actions -> state
-const state$ = actions$
+actions$
+	.map(action => (
+		action.path && console.log(action.path.join('.'), action.payload),
+		console.log(action),
+		action)
+	)
 	.startWith(() => actions.initial)
 	.scan((state, change) => change(state), {})
 	.map(state => (console.log(state), state))
-	.share();
+	.subscribe(state => state$.onNext(state));
 
 // state -> ui
 const ui$ = state$.map(state => ui({state, actions}));
@@ -75,7 +81,7 @@ state$.distinctUntilChanged(state => state.audio).subscribe(state => {
 		navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
 			a.disconnect(source, vca);
 			source.node = a.context.createMediaStreamSource(stream);
-			if (state.mic) source.node.connect(vca.node);
+			if (state.mic) source.node.connect(a.context.destination);
 			source.stream = stream;
 			gfx.visualize(analyser, document.querySelector('#visual').getContext('2d'));
 		});
@@ -87,7 +93,7 @@ state$.distinctUntilChanged(state => state.audio).subscribe(state => {
 });
 
 state$.distinctUntilChanged(state => state.mic).subscribe(state => {
-	if (state.mic) source.node.connect(vca.node);
+	if (state.mic) source.node.connect(a.context.destination);
 	else if (source.node) source.node.disconnect();
 });
 
@@ -109,6 +115,10 @@ const addNewSample = (channel, buffer, baseLength, quantize = false) => {
 	}
 	console.log({buffer, length, baseLength});
 	let resizedBuffer = bufferUtils.resize(buffer, length);
+	console.log(
+		buffer, buffer instanceof AudioBuffer,
+		resizedBuffer, resizedBuffer instanceof AudioBuffer
+	);
 	let bufferSource = a.context.createBufferSource();
 	bufferSource.buffer = resizedBuffer;
 	bufferSource.loop = true;
@@ -215,3 +225,9 @@ if (midi) midi.msg$
 				break;
 		}
 	});
+
+// livereload impl.
+if (module.hot) {
+	document.write(`<script src="http://${(location.host || 'localhost').split(':')[0]}` +
+	`:35729/livereload.js?snipver=1"></script>`);
+}
