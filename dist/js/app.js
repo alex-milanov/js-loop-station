@@ -35526,6 +35526,8 @@ const clear = channel => state => Object.assign(obj.patch(state, ['channels', ch
 
 const setBaseLength = baseLength => state => Object.assign({}, state, {baseLength});
 
+const ping = () => state => state;
+
 module.exports = {
 	initial,
 	toggle,
@@ -35533,7 +35535,8 @@ module.exports = {
 	playRec,
 	stop,
 	clear,
-	setBaseLength
+	setBaseLength,
+	ping
 };
 
 },{"iblokz-data":38}],160:[function(require,module,exports){
@@ -35543,18 +35546,14 @@ module.exports = {
 const Rx = require('rx');
 const $ = Rx.Observable;
 
-const bufferUtils = require('audio-buffer-utils');
-
 // iblokz
 const vdom = require('iblokz-snabbdom-helpers');
 const {obj, arr} = require('iblokz-data');
 
 // util
 const a = require('./util/audio');
-const file = require('./util/file');
+window.a = a;
 const midi = require('./util/midi')();
-const rec = require('./util/recorder');
-const gfx = require('./util/gfx');
 
 // app
 const app = require('./util/app');
@@ -35562,6 +35561,13 @@ let actions = app.adapt(require('./actions'));
 let ui = require('./ui');
 let actions$;
 const state$ = new Rx.BehaviorSubject();
+// services
+// visuals
+let visuals = require('./services/visuals.js');
+// audio
+let audio = require('./services/audio.js');
+
+// shared objects
 
 // hot reloading
 if (module.hot) {
@@ -35576,6 +35582,21 @@ if (module.hot) {
 	module.hot.accept("./ui", function() {
 		ui = require('./ui');
 		actions.stream.onNext(state => state);
+	});
+	// services
+	// visuals
+	module.hot.accept("./services/visuals.js", function() {
+		visuals.unhook();
+		visuals = require('./services/visuals.js');
+		visuals.hook({state$, actions});
+		actions.ping();
+	});
+	// audio
+	module.hot.accept("./services/audio.js", function() {
+		audio.unhook();
+		audio = require('./services/audio.js');
+		audio.hook({state$, actions});
+		actions.ping();
 	});
 } else {
 	actions$ = actions.stream;
@@ -35598,120 +35619,27 @@ const ui$ = state$.map(state => ui({state, actions}));
 vdom.patchStream(ui$, '#ui');
 
 // hooks
-let source = {
-	type: 'soundSource',
-	node: null,
-	stream: null,
-	out: []
-};
-
-const vca = a.vca({gain: 0.5});
-
-let analyser = a.context.createAnalyser();
-analyser.minDecibels = -90;
-analyser.maxDecibels = -10;
-analyser.smoothingTimeConstant = 0.85;
-analyser.connect(a.context.destination);
-
-vca.node.connect(analyser);
-
-state$.distinctUntilChanged(state => state.audio).subscribe(state => {
-	if (state.audio) {
-		navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
-			a.disconnect(source, vca);
-			source.node = a.context.createMediaStreamSource(stream);
-			if (state.mic) source.node.connect(a.context.destination);
-			source.stream = stream;
-			gfx.visualize(analyser, document.querySelector('#visual').getContext('2d'));
-		});
-	} else if (source.node) {
-		source.node.disconnect();
-		source.node = null;
-		source.stream = null;
-	}
-});
-
-state$.distinctUntilChanged(state => state.mic).subscribe(state => {
-	if (state.mic) source.node.connect(a.context.destination);
-	else if (source.node) source.node.disconnect();
-});
-
-let buffers = {};
-let recording = {};
-let blob$ = new Rx.Subject();
-
-const addNewSample = (channel, buffer, baseLength, quantize = false) => {
-	// quantize buffer
-	let length = buffer.length;
-	if (quantize) {
-		if (baseLength === 0) {
-			length = Number(length / 4).toFixed() * 4;
-			actions.setBaseLength(length);
-		} else {
-			let quant = baseLength / 4;
-			length = Number(length / quant).toFixed() * quant;
-		}
-	}
-	console.log({buffer, length, baseLength});
-	let resizedBuffer = bufferUtils.resize(buffer, length);
-	console.log(
-		buffer, buffer instanceof AudioBuffer,
-		resizedBuffer, resizedBuffer instanceof AudioBuffer
-	);
-	let bufferSource = a.context.createBufferSource();
-	bufferSource.buffer = resizedBuffer;
-	bufferSource.loop = true;
-	bufferSource.connect(vca.node);
-	bufferSource.start();
-	if (!buffers[channel]) buffers[channel] = [];
-	buffers[channel].push(bufferSource);
-};
-
-[0, 1, 2, 3].map(channel =>
-	state$.distinctUntilChanged(state => state.channels[channel].process)
-		.subscribe(state => {
-			if (state.audio) {
-				if (state.channels[channel].process === 'record' || state.channels[channel].process === 'overdub') {
-					console.log(rec.record, source.stream);
-					recording[channel] = rec.record(source.stream, a.context);
-					recording[channel].data$
-						.flatMap(data => file.load(data, 'arrayBuffer'))
-						.flatMap(arrayBuffer => $.fromPromise(a.context.decodeAudioData(arrayBuffer)))
-						.subscribe(buffer => addNewSample(channel, buffer, state.baseLength, state.quantize));
-				} else if (state.channels[channel].process === 'play') {
-					if (recording[channel]) {
-						recording[channel].stop();
-						recording[channel] = null;
-					}
-					if (buffers[channel]) buffers[channel] = buffers[channel].map(old => {
-						old.stop();
-						let bufferSource = a.context.createBufferSource();
-						bufferSource.buffer = old.buffer;
-						bufferSource.loop = true;
-						bufferSource.connect(vca.node);
-						bufferSource.start();
-						return bufferSource;
-					});
-				} else {
-					// stop`
-					if (buffers[channel]) buffers[channel].forEach(bufferSource => bufferSource.stop());
-					if (state.channels[channel].process === 'empty')
-						buffers[channel] = [];
-				}
-			}
-		})
-	);
+visuals.hook({state$, actions});
+audio.hook({state$, actions});
 
 let midiMap = {
 	pads: {
-		60: ['playRec', '0'],
-		61: ['playRec', '1'],
-		62: ['playRec', '2'],
-		63: ['playRec', '3'],
-		64: ['stop', '0'],
-		65: ['stop', '1'],
-		66: ['stop', '2'],
-		67: ['stop', '3']
+		// 60: ['playRec', '0'],
+		// 61: ['playRec', '1'],
+		// 62: ['playRec', '2'],
+		// 63: ['playRec', '3'],
+		// 64: ['stop', '0'],
+		// 65: ['stop', '1'],
+		// 66: ['stop', '2'],
+		// 67: ['stop', '3'],
+		36: ['playRec', '0'],
+		37: ['playRec', '1'],
+		38: ['playRec', '2'],
+		39: ['playRec', '3'],
+		40: ['stop', '0'],
+		41: ['stop', '1'],
+		42: ['stop', '2'],
+		43: ['stop', '3']
 	},
 	controller: {
 		24: ['change', '0', 'gain'],
@@ -35736,7 +35664,7 @@ if (midi) midi.msg$
 		let value;
 		switch (data.msg.state) {
 			case 'noteOn':
-				if (midiMap.pads[data.msg.note.number] && data.msg.channel === 10) {
+				if (midiMap.pads[data.msg.note.number] && data.msg.channel === 1) {
 					mmap = midiMap.pads[data.msg.note.number];
 					// if (data.msg.note.channel !== 10) noteOn(state.instrument, data.msg.note, data.msg.velocity);
 					if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
@@ -35771,7 +35699,185 @@ if (module.hot) {
 	`:35729/livereload.js?snipver=1"></script>`);
 }
 
-},{"./actions":159,"./ui":162,"./util/app":163,"./util/audio":164,"./util/file":165,"./util/gfx":166,"./util/midi":167,"./util/recorder":168,"audio-buffer-utils":4,"iblokz-data":38,"iblokz-snabbdom-helpers":43,"rx":138}],161:[function(require,module,exports){
+},{"./actions":159,"./services/audio.js":161,"./services/visuals.js":162,"./ui":164,"./util/app":166,"./util/audio":171,"./util/midi":174,"iblokz-data":38,"iblokz-snabbdom-helpers":43,"rx":138}],161:[function(require,module,exports){
+'use strict';
+// lib
+const Rx = require('rx');
+const $ = Rx.Observable;
+
+const pocket = require('../util/pocket');
+const a = require('../util/audio');
+const bufferUtils = require('audio-buffer-utils');
+const rec = require('../util/recorder');
+const file = require('../util/file');
+
+let unhook = () => {};
+
+const createAnalyser = context => {
+	console.log('Creating analyser');
+	let analyser = context.createAnalyser();
+	analyser.minDecibels = -90;
+	analyser.maxDecibels = -10;
+	analyser.smoothingTimeConstant = 0.85;
+	analyser.connect(context.destination);
+	return analyser;
+};
+
+const hook = ({state$, actions}) => {
+	let subs = [];
+
+	const analyser$ = $.interval(100)
+		.map(() => a.context)
+		.distinctUntilChanged(context => context.state)
+		.filter(context => context.state !== 'suspended')
+		.map(createAnalyser);
+
+	let source = {
+		type: 'soundSource',
+		node: null,
+		stream: null,
+		out: []
+	};
+
+	let vca;
+
+	analyser$.subscribe(analyser => {
+		vca = a.vca({gain: 0.5});
+		pocket.put('analyser', analyser);
+		a.connect(vca, analyser);
+	});
+
+	state$.distinctUntilChanged(state => state.audio).subscribe(state => {
+		if (state.audio) {
+			navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
+				a.disconnect(source, vca);
+				source.node = a.context.createMediaStreamSource(stream);
+				if (state.mic) source.node.connect(a.context.destination);
+				source.stream = stream;
+			});
+		} else if (source.node) {
+			source.node.disconnect();
+			source.node = null;
+			source.stream = null;
+		}
+	});
+
+	state$.distinctUntilChanged(state => state.mic).subscribe(state => {
+		if (state.mic) source.node.connect(a.context.destination);
+		else if (source.node) source.node.disconnect();
+	});
+
+	let buffers = {};
+	let recording = {};
+	let blob$ = new Rx.Subject();
+
+	const addNewSample = (channel, buffer, baseLength, quantize = false) => {
+		// quantize buffer
+		let length = buffer.length;
+		if (quantize) {
+			if (baseLength === 0) {
+				length = Number(length / 4).toFixed() * 4;
+				actions.setBaseLength(length);
+			} else {
+				let quant = baseLength / 4;
+				length = Number(length / quant).toFixed() * quant;
+			}
+		}
+		console.log({buffer, length, baseLength});
+		let resizedBuffer = bufferUtils.resize(buffer, length);
+		console.log(
+			buffer, buffer instanceof AudioBuffer,
+			resizedBuffer, resizedBuffer instanceof AudioBuffer
+		);
+		let bufferSource = a.context.createBufferSource();
+		bufferSource.buffer = resizedBuffer;
+		bufferSource.loop = true;
+		bufferSource.connect(vca.through);
+		bufferSource.start();
+		if (!buffers[channel]) buffers[channel] = [];
+		buffers[channel].push(bufferSource);
+	};
+
+	[0, 1, 2, 3].map(channel =>
+		state$.distinctUntilChanged(state => state.channels[channel].process)
+			.subscribe(state => {
+				if (state.audio) {
+					if (state.channels[channel].process === 'record' || state.channels[channel].process === 'overdub') {
+						console.log(rec.record, source.stream);
+						recording[channel] = rec.record(source.stream, a.context);
+						recording[channel].data$
+							.flatMap(data => file.load(data, 'arrayBuffer'))
+							.flatMap(arrayBuffer => $.fromPromise(a.context.decodeAudioData(arrayBuffer)))
+							.subscribe(buffer => addNewSample(channel, buffer, state.baseLength, state.quantize));
+					} else if (state.channels[channel].process === 'play') {
+						if (recording[channel]) {
+							recording[channel].stop();
+							recording[channel] = null;
+						}
+						if (buffers[channel]) buffers[channel] = buffers[channel].map(old => {
+							old.stop();
+							let bufferSource = a.context.createBufferSource();
+							bufferSource.buffer = old.buffer;
+							bufferSource.loop = true;
+							bufferSource.connect(vca.through);
+							bufferSource.start();
+							return bufferSource;
+						});
+					} else {
+						// stop`
+						if (buffers[channel]) buffers[channel].forEach(bufferSource => bufferSource.stop());
+						if (state.channels[channel].process === 'empty')
+							buffers[channel] = [];
+					}
+				}
+			})
+		);
+
+	unhook = () => subs.forEach(sub => sub.unsubscribe());
+};
+
+module.exports = {
+	hook,
+	unhook
+};
+
+},{"../util/audio":171,"../util/file":172,"../util/pocket":175,"../util/recorder":176,"audio-buffer-utils":4,"rx":138}],162:[function(require,module,exports){
+'use strict';
+// lib
+const Rx = require('rx');
+const $ = Rx.Observable;
+
+const gfx = require('../util/gfx');
+const pocket = require('../util/pocket');
+
+let unhook = () => {};
+
+const hook = ({state$, actions}) => {
+	let subs = [];
+
+	const analyser$ = pocket.stream
+		.distinctUntilChanged(p => p.analyser)
+		.filter(p => p.analyser)
+		.map(pocket => pocket.analyser);
+
+	$.interval(100)
+		.map(() => document.querySelector('#visual'))
+		.withLatestFrom(state$, analyser$, (el, state, analyser) => ({el, state, analyser}))
+		.distinctUntilChanged(({el, state, analyser}) => el + state.audio + analyser)
+		.filter(({el, state, analyser}) => el && state.audio && analyser)
+		.subscribe(({el, analyser}) => {
+			gfx.visualize(analyser, el.getContext('2d'));
+		});
+
+	unhook = () => subs.forEach(sub => sub.unsubscribe());
+};
+
+module.exports = {
+	hook,
+	unhook
+};
+
+},{"../util/gfx":173,"../util/pocket":175,"rx":138}],163:[function(require,module,exports){
 'use strict';
 
 const {section, button, span, i, input} = require('iblokz-snabbdom-helpers');
@@ -35797,54 +35903,98 @@ module.exports = ({params, chan, actions}) => section('.channel', [
 	}, '')
 ]);
 
-},{"iblokz-snabbdom-helpers":43}],162:[function(require,module,exports){
+},{"iblokz-snabbdom-helpers":43}],164:[function(require,module,exports){
 'use strict';
 
 // dom
-const {header, section, button, span, h1, i, hr, canvas, input} = require('iblokz-snabbdom-helpers');
+const {
+	header, section, button, span, h1,
+	h4, i, hr, canvas, input,
+	fieldset, legend, label, select, option
+} = require('iblokz-snabbdom-helpers');
+const {context} = require('../util/audio');
 // components
+const suspended = require('./suspended');
 const channel = require('./channel');
 
-module.exports = ({state, actions}) => section('#ui', [
-	header([
-		h1('JS Loop Station'),
-		button('.toggle.big[title="Monitor On/Off"]', {on: {click: () => actions.toggle('mic')}}, [
-			i(({
-				class: {
-					'fa': true,
-					'fa-microphone': state.mic,
-					'fa-microphone-slash': !state.mic
-				}
-			}))
+// console.log(context.state);
+
+module.exports = ({state, actions}) => section('#ui',
+	(console.log(context.state),
+	context.state === 'suspended')
+	? suspended({state, actions})
+	: [
+		header([
+			h1('JS Loop Station'),
+			button('.toggle.big[title="Monitor On/Off"]', {on: {click: () => actions.toggle('mic')}}, [
+				i(({
+					class: {
+						'fa': true,
+						'fa-microphone': state.mic,
+						'fa-microphone-slash': !state.mic
+					}
+				}))
+			]),
+			button('.toggle[title="Audio Input On/Off"]', {on: {click: () => actions.toggle('audio')}}, [
+				i(({
+					class: {
+						'fa': true,
+						'fa-toggle-on': state.audio,
+						'fa-toggle-off': !state.audio
+					}
+				})),
+				span('Audio Input')
+			]),
+			button('.toggle[title="Quantize On/Off"]', {on: {click: () => actions.toggle('quantize')}}, [
+				i(({
+					class: {
+						'fa': true,
+						'fa-check-square-o': state.quantize,
+						'fa-square-o': !state.quantize
+					}
+				})),
+				span('Quantize')
+			])
 		]),
-		button('.toggle[title="Audio Input On/Off"]', {on: {click: () => actions.toggle('audio')}}, [
-			i(({
-				class: {
-					'fa': true,
-					'fa-toggle-on': state.audio,
-					'fa-toggle-off': !state.audio
-				}
-			})),
-			span('Audio Input')
-		]),
-		button('.toggle[title="Quantize On/Off"]', {on: {click: () => actions.toggle('quantize')}}, [
-			i(({
-				class: {
-					'fa': true,
-					'fa-check-square-o': state.quantize,
-					'fa-square-o': !state.quantize
-				}
-			})),
-			span('Quantize')
-		])
-	]),
-	section('.channels',
-		Object.keys(state.channels).map(chan => channel({params: state.channels[chan], chan, actions}))
-	),
-	canvas('#visual')
+		// fieldset('.midi', [
+		// 	legend('MIDI Map'),
+		// 	label('Input'),
+		// 	select()
+		// ]),
+		section('.channels',
+			Object.keys(state.channels).map(chan => channel({params: state.channels[chan], chan, actions}))
+		),
+		canvas('#visual')
+	]
+);
+
+},{"../util/audio":171,"./channel":163,"./suspended":165,"iblokz-snabbdom-helpers":43}],165:[function(require,module,exports){
+'use strict';
+
+const {
+	div, p, h1, header, img, i, ul, li,
+	a, button, input, label, span
+} = require('iblokz-snabbdom-helpers');
+
+const {context} = require('../util/audio');
+
+module.exports = ({state, actions}) => div([
+	p('Due to policy changes in Google Chrome you have to click Resume to use WebAudio'),
+	p('Note: You will only see this message if your web audio\'s state is suspended'),
+	p(['More info at: ',
+		a('[href="https://developers.google.com/web/updates/2017/09/autoplay-policy-changes#webaudio"]',
+		'google autoplay policy changes')]),
+	button({on: {
+		click: ev => {
+			context.resume().then(() => {
+				// console.log(context.state);
+				actions.ping();
+			}, err => console.log(err));
+		}
+	}}, 'Resume')
 ]);
 
-},{"./channel":161,"iblokz-snabbdom-helpers":43}],163:[function(require,module,exports){
+},{"../util/audio":171,"iblokz-snabbdom-helpers":43}],166:[function(require,module,exports){
 'use strict';
 
 // lib
@@ -35888,12 +36038,76 @@ module.exports = {
 	attach
 };
 
-},{"iblokz-data":38,"rx":138}],164:[function(require,module,exports){
+},{"iblokz-data":38,"rx":138}],167:[function(require,module,exports){
 'use strict';
 
-const {arr, obj, fn} = require('iblokz-data');
+const {obj, fn} = require('iblokz-data');
+const {context, create: _create, set, chain, duration, chData, schedule} = require('../core');
 
-let context = new (
+const create = prefs => [{
+	prefs: Object.assign({
+		volume: 0.41,
+		attack: 0.31,
+		decay: 0.16,
+		sustain: 0.8,
+		release: 0.21
+	}, prefs),
+	through: _create('gain')
+}].map(n => (
+	set(n.through.gain, 'value', 0),
+	n
+)).pop();
+
+const update = (n, prefs) => (
+	set(n, 'prefs', Object.assign({}, n.prefs, prefs)),
+	n
+);
+
+const noteOn = (node, velocity, time) => {
+	const now = context.currentTime;
+	time = (time || now) + 0.0001;
+
+	node.through.gain.cancelScheduledValues(0);
+
+	const changes = [].concat(
+		// attack
+		(node.prefs.attack > 0)
+			? [[0, time], [velocity * node.prefs.volume, node.prefs.attack]]
+			: [[velocity * node.prefs.volume, time]],
+		// decay
+		(node.prefs.decay > 0)
+			? [[node.prefs.sustain * velocity * node.prefs.volume, node.prefs.decay]] : []
+	).reduce((a, c) => [[].concat(a[0], c[0]), [].concat(a[1], c[1])], [[], []]);
+
+	schedule(node.through, 'gain', changes[0], changes[1]);
+	return node;
+};
+
+const noteOff = (node, time) => {
+	const now = context.currentTime;
+	time = time || now + 0.0001;
+
+	setTimeout(() => (
+		node.through.gain.cancelScheduledValues(0),
+		node.through.gain.setValueCurveAtTime(new Float32Array([node.through.gain.value, 0]),
+				time, node.prefs.release > 0 && node.prefs.release || 0.00001)
+	), (time - now) * 1000);
+	return node;
+};
+
+module.exports = {
+	create,
+	update,
+	noteOn,
+	noteOff
+};
+
+},{"../core":168,"iblokz-data":38}],168:[function(require,module,exports){
+'use strict';
+
+const {obj, fn} = require('iblokz-data');
+
+const context = new (
 	window.AudioContext
 	|| window.webkitAudioContext
 	|| window.mozAudioContext
@@ -35901,118 +36115,333 @@ let context = new (
 	|| window.msAudioContext
 )();
 
-/*
-	type
-	node1 (vco1)
-	node1 (vco2)
-	in
-	out
-	connections
-*/
+const set = (o, k, v) => (o[k] = v);
+const isSet = v => v !== undefined;
+const isGet = v => isSet(v) ? v : null;
 
-const createMap = {
-	default: (type, context) => ({
-		type,
-		node: {
-			vco: () => context.createOscillator(),
-			lfo: () => context.createOscillator(),
-			vca: () => context.createGain(),
-			vcf: () => context.createBiquadFilter()
-		}[type](),
-		out: []
-	})
-};
+const apply = (o1, o2) => Object.keys(o2)
+	.reduce((o, k) => set(o, k, o2[k]), o1);
 
-const prefsMap = {
-	vco: {
-		type: (node, value) => ((node.node.type = value), node),
-		freq: (node, value) => ((node.node.frequency.value = value), node),
-		detune: (node, value) => ((node.node.detune.value = value), node)
-	},
-	vcf: {
-		type: (node, value) => ((node.node.type = value), node),
-		cutoff: (node, value) => {
-			const minValue = 40;
-			const maxValue = node.node.context.sampleRate / 2;
-			// Logarithm (base 2) to compute how many octaves fall in the range.
-			var numberOfOctaves = Math.log(maxValue / minValue) / Math.LN2;
-			// Compute a multiplier from 0 to 1 based on an exponential scale.
-			var multiplier = Math.pow(2, numberOfOctaves * (value - 1.0));
-			// Get back to the frequency value between min and max.
-			node.node.frequency.value = maxValue * multiplier;
-			return node;
-		},
-		resonance: (node, value) => ((node.node.Q.value = value * 30), node)
-	},
-	vca: {
-		gain: (node, value) => ((node.node.gain.value = value), node)
-	},
-	delay: {
-		time: (node, value) => ((node.delay.delayTime.value = value), node),
-		dry: (node, value) => ((node.dry.gain.value = value), node),
-		wet: (node, value) => ((node.wet.gain.value = value), node)
+const create = (type, ...args) => (
+	// console.log(type),
+	obj.switch(type, {
+		oscillator: () => context.createOscillator(...args),
+		gain: () => context.createGain(...args),
+		biquadFilter: () => context.createBiquadFilter(...args),
+		convolver: () => context.createConvolver(...args),
+		buffer: () => context.createBuffer(...args),
+		bufferSource: () => context.createBufferSource(...args)
+	})());
+
+const update = (node, prefs) => apply(node, prefs);
+
+const connect = (n1, n2) => (
+	// console.log(n1, n2),
+	n1.connect(n2),
+	n1
+);
+const disconnect = (n1, n2) => {
+	// since there is no way to determine if they are connected
+	try {
+		n1.disconnect(n2);
+	} catch (err) {
+		console.log(err);
 	}
+	return n1;
 };
 
-const create = (type, context) => fn.switch(type, createMap)(type, context);
+const chain = (...nodes) => (
+	nodes.forEach((n, i) => isSet(nodes[i + 1]) && connect(n, nodes[i + 1])),
+	nodes[0]
+);
+
+const unchain = (...nodes) => (
+	nodes.slice().reverse()
+		.forEach((n, i) => isSet(nodes[i - 1]) && disconnect(nodes[i - 1], n)),
+	nodes[0]
+);
+
+const duration = seconds => context.sampleRate * seconds;
+const chData = (node, ...args) => (
+	// console.log(node, args),
+	node.getChannelData(...args)
+);
+
+const schedule = (node, pref, values, times) => (values.length === 1)
+	? node[pref].setValueAtTime(values[0], times[0])
+	: (node[pref].setValueCurveAtTime(new Float32Array(values.slice(0, 2)), times[0], times[1]),
+		(values.length > 2) && schedule(node, pref, values.slice(1), [times[0] + times[1]].concat(times.slice(2))));
+
+module.exports = {
+	context,
+	set,
+	isSet,
+	isGet,
+	create,
+	update,
+	connect,
+	disconnect,
+	chain,
+	unchain,
+	// util
+	duration,
+	chData,
+	schedule
+};
+
+},{"iblokz-data":38}],169:[function(require,module,exports){
+'use strict';
+
+const {obj, fn} = require('iblokz-data');
+const {context, create: _create, set, chain, duration, chData} = require('../core');
+
+const create = prefs => [{
+	prefs: Object.assign({
+		type: 'sawtooth',
+		frequency: 5,
+		gain: 15
+	}, prefs),
+	effect: _create('oscillator'),
+	output: _create('gain')
+}].map(n => (
+	chain(n.effect, n.output),
+	set(n.effect.frequency, 'value', n.prefs.frequency),
+	set(n.output.gain, 'value', n.prefs.gain),
+	set(n.effect, 'type', n.prefs.type),
+	n
+)).pop();
+
+const update = (n, prefs) => (
+	set(n, 'prefs', Object.assign({}, n.prefs, prefs)),
+	set(n.effect.frequency, 'value', n.prefs.frequency),
+	set(n.output.gain, 'value', n.prefs.gain),
+	set(n.effect, 'type', n.prefs.type),
+	n
+);
+
+const start = (n, ...args) => (
+	n.effect.start(),
+	n
+);
+
+// const clone = n => create(null, n.output.buffer);
+
+module.exports = {
+	create,
+	update,
+	start
+};
+
+},{"../core":168,"iblokz-data":38}],170:[function(require,module,exports){
+'use strict';
+
+const {obj, fn} = require('iblokz-data');
+const {context, create: _create, set, chain, duration, chData} = require('../core');
+// const {context} = core;
+
+const buildImpulse = ({seconds, decay}) => {
+	let impulse = _create('buffer', 2, duration(seconds), context.sampleRate);
+	let channelData = [
+		chData(impulse, 0),
+		chData(impulse, 1)
+	];
+	for (let i = 0; i < duration(seconds); i++) {
+		channelData[0][i] = (Math.random() * 2 - 1) * Math.pow(1 - i / duration(seconds), decay);
+		channelData[1][i] = (Math.random() * 2 - 1) * Math.pow(1 - i / duration(seconds), decay);
+	}
+	return impulse;
+};
+
+const create = prefs => [{
+	prefs: Object.assign({seconds: 3, decay: 2, wet: 0, dry: 1}, prefs),
+	input: _create('gain'),
+	output: _create('gain'),
+	effect: _create('convolver'),
+	wet: _create('gain'),
+	dry: _create('gain')
+}].map(n => (
+	chain(n.input, n.dry, n.output),
+	chain(n.input, n.effect, n.wet, n.output),
+	set(n.dry.gain, 'value', n.prefs.dry),
+	set(n.wet.gain, 'value', n.prefs.wet),
+	set(n.effect, 'buffer', buildImpulse(n.prefs)),
+	n
+)
+	// n
+
+	/*
+	n.input.connect(n.effect);
+	n.effect.connect(n.wet);
+	n.wet.connect(n.output);
+
+	n.input.connect(n.dry);
+	n.dry.connect(n.output);
+	*/
+	/*
+	n.dry.gain.value = n.prefs.dry;
+	n.wet.gain.value = n.prefs.wet;
+	n.effect.buffer = buildImpulse(n.prefs);
+	*/
+	// set(n.wet.gain, 'value', n.prefs.wet),
+	// set(n.effect, 'buffer', buildImpulse(n.prefs)),
+	// return n;
+).pop();
+
+const update = (n, prefs) => (
+//	console.log(prefs, n.prefs),
+	(n.prefs.seconds !== prefs.seconds || n.prefs.decay !== prefs.decay)
+		&& set(n.effect, 'buffer', buildImpulse(n.prefs)),
+	(n.prefs.dry !== prefs.dry)
+		&& set(n.dry.gain, 'value', prefs.dry),
+	(n.prefs.wet !== prefs.wet)
+		&& set(n.wet.gain, 'value', prefs.wet),
+	set(n, 'prefs', Object.assign({}, n.prefs, prefs)),
+	n
+);
+
+module.exports = {
+	create,
+	update
+};
+
+},{"../core":168,"iblokz-data":38}],171:[function(require,module,exports){
+'use strict';
+
+const {obj, fn} = require('iblokz-data');
+
+const {
+	context, set, isSet, isGet,
+	schedule: _schedule,
+	create: _create,
+	connect: _connect, disconnect: _disconnect
+} = require('./core');
+
+const reverb = require('./effects/reverb');
+const lfo = require('./effects/lfo');
+const adsr = require('./controls/adsr');
+
+const create = (type, prefs = {}, ctx = context) => Object.assign({},
+	obj.switch(type, {
+		vco: () => ({output: _create('oscillator')}),
+		vca: () => ({through: _create('gain')}),
+		vcf: () => ({through: _create('biquadFilter')}),
+		lfo: () => lfo.create(prefs),
+		reverb: () => reverb.create(prefs),
+		adsr: () => adsr.create(prefs)
+	})(),
+	{type, out: []}
+);
+
+const cutoffToFreq = cutoff => {
+	const minValue = 40;
+	const maxValue = context.sampleRate / 2;
+	// Logarithm (base 2) to compute how many octaves fall in the range.
+	var numberOfOctaves = Math.log(maxValue / minValue) / Math.LN2;
+	// Compute a multiplier from 0 to 1 based on an exponential scale.
+	var multiplier = Math.pow(2, numberOfOctaves * (cutoff - 1.0));
+	// Get back to the frequency value between min and max.
+	return maxValue * multiplier;
+};
+
+const update = (node, prefs) => obj.switch(node.type, {
+	vco: () => (
+		isSet(prefs.type) && set(node.output, 'type', prefs.type),
+		isSet(prefs.freq) && set(node.output.frequency, 'value', prefs.freq),
+		isSet(prefs.detune) && set(node.output.detune, 'value', prefs.detune),
+		Object.assign(node, {prefs})
+	),
+	vca: () => (
+		isSet(prefs.gain) && set(node.through.gain, 'value', prefs.gain),
+		Object.assign(node, {prefs})
+	),
+	vcf: () => (
+		isSet(prefs.type) && set(node.through, 'type', prefs.type),
+		isSet(prefs.cutoff)
+			&& _schedule(node.through, 'frequency', [cutoffToFreq(prefs.cutoff)], [context.currentTime + 0.0001]),
+			// set(node.through.frequency, 'value', cutoffToFreq(prefs.cutoff)),
+		isSet(prefs.resonance)
+			&& _schedule(node.through, 'Q', [prefs.resonance * 30], [context.currentTime + 0.0001]),
+		Object.assign(node, {prefs})
+	),
+	reverb: () => reverb.update(node, prefs),
+	adsr: () => adsr.update(node, prefs),
+	lfo: () => lfo.update(node, prefs)
+})();
 
 const connect = (node1, node2) => !(node1.out && node1.out.indexOf(node2) > -1)
-	? (((node1.node && node1.node.connect)
-			? node1.node
-			: node1).connect(
-			node2.node || node2
-		), Object.assign({}, node1, {
-			out: [].concat(node1.out, [node2])
+	? (_connect(
+			// input
+			isGet(node1.output)
+			|| isGet(node1.through)
+			|| isSet(node1.connect) && node1,
+			// output
+			(node2 instanceof AudioParam) && node2
+			|| isGet(node2.input)
+			|| isGet(node2.through)
+			|| node2
+		),
+		Object.assign({}, node1, {
+			out: [].concat(node1.out || [], [node2])
 		}))
 	: node1;
 
-const disconnect = (node1, node2) => (node1.out.indexOf(node2) > -1)
-	? (((node1.node && node1.node.connect)
-		? node1.node
-		: node1).disconnect(
-			node2.node || node2
-		), Object.assign({}, node1, {
+const disconnect = (node1, node2) => (
+	// (console.log('dissconnecting', node1, node2)),
+	(node1.out.indexOf(node2) > -1)
+	? (_disconnect(
+			// input
+			isGet(node1.output)
+			|| isGet(node1.through)
+			|| isSet(node1.connect) && node1,
+			// output
+			(node2 instanceof AudioParam) && node2
+			|| isGet(node2.input)
+			|| isGet(node2.through)
+			|| node2
+		),
+		Object.assign({}, node1, {
 			out: [].concat(
 				node1.out.slice(0, node1.out.indexOf(node2)),
 				node1.out.slice(node1.out.indexOf(node2) + 1)
 			)
 		}))
 	: (typeof node2 === 'undefined')
-		&& node1.out.reduce((node1, prevNode) => disconnect(node1, prevNode), node1)
-		|| node1;
-
-const reroute = (node1, node2) => connect(disconnect(node1), node2);
-
-const chain = nodes => nodes.forEach(
-	(node, i) => {
-		if (nodes[i + 1]) connect(node, nodes[i + 1]);
-	}
+		? node1.out.reduce((node1, prevNode) => disconnect(node1, prevNode), node1)
+		: node1
 );
 
-const apply = (node, prefs) => Object.keys(prefs)
-	.filter(pref => prefsMap[node.type][pref] !== undefined)
-	// .map(pref => (console.log('pref', node, pref), pref))
-	.reduce(
-		(node, pref) => prefsMap[node.type][pref](node, prefs[pref]),
-		node
-	);
+const reroute = (node1, node2) => (node1.out && node1.out.indexOf(node2) === -1)
+	? connect(disconnect(node1), node2)
+	: node1;
 
-const scheduleChanges = (node, pref, values, times) => (values.length === 1)
-	? node.node[pref].setValueAtTime(values[0], times[0])
-	: (node.node[pref].setValueCurveAtTime(new Float32Array(values.slice(0, 2)), times[0], times[1]),
-		(values.length > 2) && scheduleChanges(node, pref, values.slice(1), [times[0] + times[1]].concat(times.slice(2))));
+const chain = (...nodes) => (
+	nodes.forEach((n, i) => isSet(n[i + 1]) && connect(n, nodes[i + 1])),
+	nodes[0]
+);
 
-const add = (type, prefs, context) => apply(create(type, context), prefs);
+const unchain = (...nodes) => (
+	nodes.slice().reverse()
+		.forEach((n, i) => isSet(n[i - 1]) && disconnect(nodes[i - 1], n)),
+	nodes[0]
+);
 
-const start = function(node) {
-	node.node.start.apply(node.node, Array.from(arguments).slice(1));
-	return node;
-};
+const start = (node, ...args) => (node.type === 'lfo'
+	? lfo.start(node, ...args)
+	: node.source
+		? node.source.start(...args)
+		: node.output.start(...args),
+node);
 
-const stop = function(node) {
-	node.node.stop.apply(node.node, Array.from(arguments).slice(1));
-	return node;
-};
+const stop = (node, ...args) => (
+	node.source
+		? node.source.stop(...args)
+		: node.output.stop(...args),
+node);
+
+const schedule = (node, pref, values, times) => (values.length === 1)
+	? node.through[pref].setValueAtTime(values[0], times[0])
+	: (node.through[pref].setValueCurveAtTime(new Float32Array(values.slice(0, 2)), times[0], times[1]),
+		(values.length > 2) && schedule(node, pref, values.slice(1), [times[0] + times[1]].concat(times.slice(2))));
 
 const noteToFrequency = function(note) {
 	var notes = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#'];
@@ -36039,23 +36468,26 @@ const noteToFrequency = function(note) {
 module.exports = {
 	context,
 	create,
+	update,
+	schedule,
 	connect,
 	disconnect,
 	reroute,
 	chain,
-	apply,
-	scheduleChanges,
-	add,
+	unchain,
+	noteToFrequency,
 	start,
 	stop,
-	noteToFrequency,
-	vco: prefs => apply(create('vco', context), prefs),
-	vcf: prefs => apply(create('vcf', context), prefs),
-	lfo: prefs => apply(create('lfo', context), prefs),
-	vca: prefs => apply(create('vca', context), prefs)
+	vco: prefs => update(create('vco', {}, context), prefs),
+	vcf: prefs => update(create('vcf', {}, context), prefs),
+	lfo: prefs => update(create('lfo', {}, context), prefs),
+	vca: prefs => update(create('vca', {}, context), prefs),
+	adsr: prefs => create('adsr', prefs, context),
+	noteOn: adsr.noteOn,
+	noteOff: adsr.noteOff
 };
 
-},{"iblokz-data":38}],165:[function(require,module,exports){
+},{"./controls/adsr":167,"./core":168,"./effects/lfo":169,"./effects/reverb":170,"iblokz-data":38}],172:[function(require,module,exports){
 'use strict';
 
 const Rx = require('rx');
@@ -36106,7 +36538,7 @@ module.exports = {
 	save
 };
 
-},{"file-saver":35,"iblokz-data":38,"jszip":75,"rx":138}],166:[function(require,module,exports){
+},{"file-saver":35,"iblokz-data":38,"jszip":75,"rx":138}],173:[function(require,module,exports){
 'use strict';
 
 const webAudioBuilder = require('waveform-data/webaudio');
@@ -36169,7 +36601,7 @@ module.exports = {
 	visualize
 };
 
-},{"../util/audio":164,"waveform-data/webaudio":158}],167:[function(require,module,exports){
+},{"../util/audio":171,"waveform-data/webaudio":158}],174:[function(require,module,exports){
 'use strict';
 
 const Rx = require('rx');
@@ -36303,7 +36735,38 @@ const init = () => {
 
 module.exports = init;
 
-},{"rx":138}],168:[function(require,module,exports){
+},{"rx":138}],175:[function(require,module,exports){
+'use strict';
+
+const Rx = require('rx');
+const $ = Rx.Observable;
+const {obj} = require('iblokz-data');
+
+let pocket;
+
+let reducers$ = new Rx.Subject();
+let pocket$ = new Rx.BehaviorSubject({});
+
+reducers$
+	.scan((pocket, reduce) => reduce(pocket), {})
+	.subscribe(pocket => pocket$.onNext(pocket));
+
+pocket$.subscribe(_pocket => {
+	// console.log({pocket});
+	pocket = _pocket;
+});
+
+const put = (path, val) => reducers$.onNext(pocket => obj.patch(pocket, path, val));
+const get = path => obj.sub(pocket, path);
+
+module.exports = {
+	put,
+	get,
+	reducers$,
+	stream: pocket$
+};
+
+},{"iblokz-data":38,"rx":138}],176:[function(require,module,exports){
 'use strict';
 
 // lib

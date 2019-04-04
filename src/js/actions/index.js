@@ -77,6 +77,8 @@ const clear = channel => state => Object.assign(obj.patch(state, ['channels', ch
 
 const setBaseLength = baseLength => state => Object.assign({}, state, {baseLength});
 
+const ping = () => state => state;
+
 module.exports = {
 	initial,
 	toggle,
@@ -84,5 +86,6 @@ module.exports = {
 	playRec,
 	stop,
 	clear,
-	setBaseLength
+	setBaseLength,
+	ping
 };
