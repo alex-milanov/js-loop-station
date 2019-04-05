@@ -2351,166 +2351,245 @@ body {
 button i.fa + span {
   margin-left: 3px; }
 
-#ui header {
-  display: block;
-  margin: 30px 10px;
-  width: 764px;
-  height: 42px;
-  line-height: 42px;
-  vertical-align: middle; }
-  #ui header h1 {
-    margin: 0px;
-    font-size: 42px;
-    font-family: 'Lobster';
-    font-weight: 400;
-    float: left; }
-  #ui header .toggle {
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-    display: inline-block;
-    box-sizing: border-box;
-    height: 26px;
-    line-height: 22px;
-    cursor: pointer;
-    font-size: 11px;
-    margin: 2px;
-    outline: none;
-    min-width: 26px;
-    font-size: 14px;
-    background: #fafafa;
-    color: #333;
-    border: 0px;
-    border-radius: 10px;
-    box-shadow: 1px 1px 1px #ccc;
-    float: right; }
-    #ui header .toggle:active {
-      margin: 3px 2px 1px 2px;
-      outline: none; }
-    #ui header .toggle.big {
+#ui {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 100%;
+  height: 100%;
+  background: #2a68a71c;
+  padding: 0px 28px; }
+  #ui header {
+    display: block;
+    margin: 32px 10px;
+    width: 764px;
+    height: 42px;
+    line-height: 42px;
+    vertical-align: middle; }
+    #ui header h1 {
+      margin: 0px;
+      font-size: 42px;
+      font-family: 'Lobster';
+      font-weight: 400;
+      float: left; }
+    #ui header .toggle {
       -webkit-user-select: none;
       -moz-user-select: none;
       -ms-user-select: none;
       user-select: none;
       display: inline-block;
       box-sizing: border-box;
-      height: 32px;
-      line-height: 28px;
+      height: 26px;
+      line-height: 22px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 11px;
       margin: 2px;
       outline: none;
-      min-width: 32px;
-      font-size: 22px; }
-      #ui header .toggle.big:active {
+      min-width: 26px;
+      font-size: 14px;
+      background: #f7f8ff;
+      color: #333;
+      border: 0px;
+      border-radius: 10px;
+      box-shadow: 1px 1px 1px #ccc;
+      float: right; }
+      #ui header .toggle:active {
         margin: 3px 2px 1px 2px;
         outline: none; }
-
-#ui canvas#visual {
-  border-radius: 7px;
-  display: block;
-  clear: both;
-  float: left;
-  height: 160px;
-  width: 764px;
-  box-shadow: 1px 1px 10px #ccc;
-  margin: 10px; }
-
-#ui .channels {
-  display: block;
-  clear: both; }
-  #ui .channels .channel {
-    width: 176px;
-    display: inline-block;
-    box-shadow: 1px 1px 10px #ccc;
+      #ui header .toggle.big {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        display: inline-block;
+        box-sizing: border-box;
+        height: 32px;
+        line-height: 28px;
+        cursor: pointer;
+        font-size: 14px;
+        margin: 2px;
+        outline: none;
+        min-width: 32px;
+        font-size: 22px; }
+        #ui header .toggle.big:active {
+          margin: 3px 2px 1px 2px;
+          outline: none; }
+  #ui canvas#visual {
     border-radius: 7px;
+    display: block;
+    clear: both;
+    float: left;
+    height: 160px;
+    width: 764px;
+    background: #f7f8ff;
+    box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ddd;
     margin: 10px; }
-    #ui .channels .channel button.stop {
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
+  #ui fieldset {
+    line-height: 36px;
+    height: 36px;
+    border: 0px;
+    box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ddd;
+    padding: 0px;
+    border-radius: 7px;
+    margin: 10px;
+    padding-left: 36px;
+    position: relative;
+    vertical-align: middle;
+    width: 764px;
+    font-size: 0.8em;
+    background: #f7f8ff; }
+    #ui fieldset > * {
       display: inline-block;
+      float: left; }
+    #ui fieldset legend {
+      line-height: 36px;
+      font-size: 1em;
+      font-weight: bold;
+      position: absolute;
+      left: 0px;
+      top: 0px;
+      width: 36px;
+      text-align: center; }
+      #ui fieldset legend img {
+        width: 36px;
+        height: 36px; }
+    #ui fieldset label {
+      line-height: 36px;
+      padding: 0px 10px; }
+    #ui fieldset select, #ui fieldset input {
       box-sizing: border-box;
-      height: 64px;
-      line-height: 32px;
-      cursor: pointer;
-      font-size: 30px;
-      margin: 16px;
-      outline: none;
-      display: block;
-      float: left;
-      width: 64px;
-      background: #fafafa;
-      color: #333;
+      margin: 7px 0px;
+      line-height: 36px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      height: 24px;
+      vertical-align: middle;
+      outline: none; }
+    #ui fieldset label {
+      padding: 0px 8px; }
+    #ui fieldset input[type="number"] {
+      padding-left: 4px;
+      width: 36px;
+      outline: none; }
+    #ui fieldset button {
+      padding: 0px;
+      width: 36px;
+      height: 36px;
+      line-height: 36px;
+      text-align: center;
+      border-radius: 7px;
+      font-size: 1.4em;
       border: 0px;
-      border-radius: 100%;
-      transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s;
-      box-shadow: 1px 1px 10px #ccc;
-      opacity: 0.9; }
-      #ui .channels .channel button.stop:active {
-        margin: 18px 16px 14px 16px;
-        outline: none; }
-      #ui .channels .channel button.stop:hover {
-        box-shadow: 1px 1px 25px #aaa;
-        opacity: 1; }
-    #ui .channels .channel input.vertical {
-      -webkit-appearance: none;
-      width: 64px;
-      height: 4px;
-      background-color: #777;
-      transform: rotate(-90deg);
-      margin-top: 38px; }
-      #ui .channels .channel input.vertical::-webkit-slider-thumb {
+      background: rgba(42, 104, 167, 0);
+      transition: .3s;
+      outline: none;
+      cursor: pointer; }
+      #ui fieldset button.on {
+        padding-top: 1px;
+        background: rgba(42, 104, 167, 0.03);
+        box-shadow: inset 1px 1px 3px #abc; }
+      #ui fieldset button > i.fa {
+        width: 36px;
+        height: 36px;
+        line-height: 36px;
+        text-align: center; }
+      #ui fieldset button.right {
+        float: right; }
+  #ui .channels {
+    display: block;
+    clear: both; }
+    #ui .channels .channel {
+      width: 176px;
+      display: inline-block;
+      box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ddd;
+      border-radius: 7px;
+      background: #f7f8ff;
+      margin: 10px; }
+      #ui .channels .channel button.stop {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        display: inline-block;
+        box-sizing: border-box;
+        height: 64px;
+        line-height: 32px;
+        cursor: pointer;
+        font-size: 30px;
+        margin: 16px;
+        outline: none;
+        display: block;
+        float: left;
+        width: 64px;
+        background: #fff;
+        color: #333;
+        border: 0px;
+        border-radius: 100%;
+        transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s;
+        box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ccc;
+        opacity: 0.9; }
+        #ui .channels .channel button.stop:active {
+          margin: 18px 16px 14px 16px;
+          outline: none; }
+        #ui .channels .channel button.stop:hover {
+          box-shadow: 1px 1px 12px #aaa;
+          opacity: 1; }
+      #ui .channels .channel input.vertical {
         -webkit-appearance: none;
-        background-color: #aaa;
-        border: 1px solid #777;
-        width: 8px;
-        height: 48px; }
-    #ui .channels .channel button.play-rec {
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-      display: inline-block;
-      box-sizing: border-box;
-      height: 128px;
-      line-height: 96px;
-      cursor: pointer;
-      font-size: 62px;
-      margin: 16px;
-      outline: none;
-      display: block;
-      width: 128px;
-      clear: both;
-      float: left;
-      background: #fafafa;
-      background-image: url("../assets/play-rec.png");
-      color: #333;
-      border: 0px;
-      border-radius: 100%;
-      transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s;
-      box-shadow: 1px 1px 20px #ccc;
-      opacity: 0.9; }
-      #ui .channels .channel button.play-rec:active {
-        margin: 20px 16px 12px 16px;
-        outline: none; }
-      #ui .channels .channel button.play-rec:hover {
-        box-shadow: 1px 1px 50px #aaa;
-        opacity: 1; }
-      #ui .channels .channel button.play-rec.play {
-        background-image: url("../assets/play-rec-play.png");
-        box-shadow: 1px 1px 20px green; }
-        #ui .channels .channel button.play-rec.play:hover {
-          box-shadow: 1px 1px 50px green; }
-      #ui .channels .channel button.play-rec.record {
-        background-image: url("../assets/play-rec-record.png");
-        box-shadow: 1px 1px 20px red; }
-        #ui .channels .channel button.play-rec.record:hover {
-          box-shadow: 1px 1px 50px red; }
-      #ui .channels .channel button.play-rec.overdub {
-        background-image: url("../assets/play-rec-overdub.png");
-        box-shadow: 1px 1px 20px #FFBF00; }
-        #ui .channels .channel button.play-rec.overdub:hover {
-          box-shadow: 1px 1px 50px #FFBF00; }
+        width: 64px;
+        height: 4px;
+        background-color: #777;
+        transform: rotate(-90deg);
+        margin-top: 38px; }
+        #ui .channels .channel input.vertical::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          background-color: #aaa;
+          border: 1px solid #777;
+          width: 8px;
+          height: 48px; }
+      #ui .channels .channel button.play-rec {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        display: inline-block;
+        box-sizing: border-box;
+        height: 128px;
+        line-height: 96px;
+        cursor: pointer;
+        font-size: 62px;
+        margin: 16px;
+        outline: none;
+        display: block;
+        width: 128px;
+        clear: both;
+        float: left;
+        background: #fff;
+        background-image: url("../assets/play-rec.png");
+        color: #333;
+        border: 0px;
+        border-radius: 100%;
+        transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s;
+        box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ddd;
+        opacity: 0.9; }
+        #ui .channels .channel button.play-rec:active {
+          margin: 20px 16px 12px 16px;
+          outline: none; }
+        #ui .channels .channel button.play-rec:hover {
+          box-shadow: 1px 1px 15px #aaa;
+          opacity: 1; }
+        #ui .channels .channel button.play-rec.play {
+          background-image: url("../assets/play-rec-play.png");
+          box-shadow: 1px 1px 10px green; }
+          #ui .channels .channel button.play-rec.play:hover {
+            box-shadow: 1px 1px 15px green; }
+        #ui .channels .channel button.play-rec.record {
+          background-image: url("../assets/play-rec-record.png");
+          box-shadow: 1px 1px 10px red; }
+          #ui .channels .channel button.play-rec.record:hover {
+            box-shadow: 1px 1px 15px red; }
+        #ui .channels .channel button.play-rec.overdub {
+          background-image: url("../assets/play-rec-overdub.png");
+          box-shadow: 1px 1px 10px #FFBF00; }
+          #ui .channels .channel button.play-rec.overdub:hover {
+            box-shadow: 1px 1px 15px #FFBF00; }

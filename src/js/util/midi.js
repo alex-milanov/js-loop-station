@@ -3,11 +3,18 @@
 const Rx = require('rx');
 const $ = Rx.Observable;
 
+const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
 const numberToNote = number => ({
-	key: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][number - parseInt(number / 12, 10) * 12],
-	octave: parseInt(number / 12, 10),
+	key: keys[number % 12],
+	octave: parseInt((number - number % 12) / 12, 10) - 1,
 	number
 });
+
+const noteToNumber = note => (
+	keys.indexOf(note.replace(/[0-9]+/, '')) +
+	(parseInt(note.replace(/[A-Z#b]+/, ''), 10) + 1) * 12
+);
 
 const parseMidiMsg = event => {
 	// Mask off the lower nibble (MIDI channel, which we don't care about)
@@ -53,6 +60,12 @@ const parseMidiMsg = event => {
 				value: parseFloat((event.data[2] / 127).toFixed(2))
 			};
 			break;
+		case "1100":
+			msg = {
+				state: "bankSelect",
+				bank: event.data[1]
+			};
+			break;
 		default:
 			msg = {
 				state: false
@@ -92,7 +105,7 @@ const parseAccess = access => {
 	let inputs = [];
 	let outputs = [];
 
-	console.log(access);
+	// console.log(access);
 
 	access.inputs.forEach(input => inputs.push(input));
 	access.outputs.forEach(output => outputs.push(output));
@@ -100,18 +113,18 @@ const parseAccess = access => {
 };
 
 const init = () => {
-	if (!navigator.requestMIDIAccess)
-		return false;
-
-	const access$ = $.fromPromise(navigator.requestMIDIAccess())
+	const devices$ = new Rx.Subject();
+	$.fromPromise(navigator.requestMIDIAccess())
 		.flatMap(access => $.create(stream => {
 			access.onstatechange = connection => stream.onNext(connection.currentTarget);
 		}).startWith(access))
 		.map(parseAccess)
-		.map(data => (console.log('midi access', data), data))
-		.share();
+		// .map(data => (console.log('midi access', data), data))
+		.subscribe(device => devices$.onNext(device));
+		// .share();
 
-	const msg$ = access$.flatMap(
+	const msg$ = new Rx.Subject();
+	devices$.flatMap(
 		({access, inputs}) => inputs.reduce(
 				(msgStream, input) => msgStream.merge(
 					$.fromEventPattern(h => {
@@ -119,14 +132,18 @@ const init = () => {
 					})
 					.map(msg => ({access, input, msg}))
 				), $.empty()
-			).share()
-	);
+			)
+	).subscribe(msg => msg$.onNext(msg));
 
 	return {
-		parseMidiMsg,
-		access$,
+		devices$,
 		msg$
 	};
 };
 
-module.exports = init;
+module.exports = {
+	init,
+	numberToNote,
+	noteToNumber,
+	parseMidiMsg
+};

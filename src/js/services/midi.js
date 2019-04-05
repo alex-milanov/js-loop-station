@@ -3,144 +3,101 @@
 const {obj, fn} = require('iblokz-data');
 
 const midi = require('../util/midi');
+const pocket = require('../util/pocket');
 
-// util
-const indexAt = (a, k, v) => a.reduce((index, e, i) => ((obj.sub(e, k) === v) ? i : index), -1);
-const prepVal = (min = 0, max = 1, digits = 3) => val =>
-	[(min + val * max - val * min).toFixed(digits)]
-		.map(val =>
-			(digits === 0) ? parseInt(val, 10) : parseFloat(val)
-		)
-		.pop();
+const initial = {
+	device: '-1',
+	devices: [],
+	channel: 1,
+	setup: false,
+	clicks: {
+		36: ['playRec', '0'],
+		37: ['playRec', '1'],
+		38: ['playRec', '2'],
+		39: ['playRec', '3'],
+		40: ['stop', '0'],
+		41: ['stop', '1'],
+		42: ['stop', '2'],
+		43: ['stop', '3']
+	},
+	dblClicks: {
+		40: ['clear', '0'],
+		41: ['clear', '1'],
+		42: ['clear', '2'],
+		43: ['clear', '3']
+	},
+	controller: {
+		24: ['change', '0', 'gain'],
+		25: ['change', '1', 'gain'],
+		26: ['change', '2', 'gain'],
+		27: ['change', '3', 'gain'],
+		64: ['playRec']
+	}
+};
+
+const connect = devices => state => obj.patch(state, 'midi', {
+	devices
+});
+
+const actions = {
+	initial,
+	connect
+};
 
 let unhook = () => {};
-
-const clockMsg = [248];    // note on, middle C, full velocity
 
 const hook = ({state$, actions, tapTempo}) => {
 	let subs = [];
 
 	const {devices$, msg$} = midi.init();
-
-	// midi device access
-	subs.push(
-		devices$.subscribe(data => actions.midiMap.connect(data))
-	);
-
 	const parsedMidiMsg$ = msg$
 		.map(raw => ({msg: midi.parseMidiMsg(raw.msg), raw}))
 		// .map(data => (console.log(data), data))
 		.share();
 
-	const getIds = (inputs, indexes) => inputs
-		.map(inp => inp.id)
-		.filter((id, i) => indexes.indexOf(i) > -1);
+	// midi device access
+	subs.push(
+		devices$.subscribe(data => actions.midi.connect(data))
+	);
 
-	const midiState$ = parsedMidiMsg$
+	// hook midi signals
+	// midi.access$.subscribe(); // data => actions.state.midi.connect(data));
+	const midiClicks$ = parsedMidiMsg$.filter(data => data.msg.state === 'noteOn').share();
+	const midiDblClicks$ = midiClicks$
+		.buffer(midiClicks$.debounce(250))
+		.map(list => (console.log(list), list))
+		.filter(list => list.length === 2 && list[0].msg.note.number === list[1].msg.note.number)
+		.map(list => list[0]);
+
+	midiClicks$
 		.withLatestFrom(state$, (data, state) => ({data, state}))
-		.filter(({data, state}) => getIds(state.midiMap.devices.inputs, state.midiMap.data.in).indexOf(
-			data.raw.input.id
-		) > -1)
-		.share();
+		.filter(({data, state}) => (data.raw.input.id === state.midi.device || state.midi.device === '-1')
+			&& state.midi.clicks[data.msg.note.number] && data.msg.channel === state.midi.channel)
+		.subscribe(({data, state}) => {
+			const mmap = state.midi.clicks[data.msg.note.number];
+			if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
+				actions[mmap[0]](mmap[1], mmap[2]);
+		});
+	midiDblClicks$
+		.withLatestFrom(state$, (data, state) => ({data, state}))
+		.filter(({data, state}) => (data.raw.input.id === state.midi.device || state.midi.device === '-1')
+			&& state.midi.dblClicks[data.msg.note.number] && data.msg.channel === state.midi.channel)
+		.subscribe(({data, state}) => {
+			console.log('double click');
+			const mmap = state.midi.dblClicks[data.msg.note.number];
+			if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
+				actions[mmap[0]](mmap[1], mmap[2]);
+		});
+	// clickStream
+  // .buffer(clickStream.debounce(250))
+  // .map(list => list.length)
+  // .filter(x => x === 2)
 
-	// midi messages
-	subs.push(
-		parsedMidiMsg$
-			// .map(midiData => (console.log({midiData}), midiData))
-			.filter(({msg}) => ['noteOn', 'noteOff'].indexOf(msg.state) > -1)
-			.withLatestFrom(state$, (midiData, state) => (Object.assign({}, midiData, {state})))
-			.filter(({raw, state}) => (
-				// console.log(raw.input.id, state.midiMap.devices.inputs, state.midiMap.data.in),
-				getIds(state.midiMap.devices.inputs, state.midiMap.data.in).indexOf(
-					raw.input.id
-				) > -1
-			))
-			.subscribe(({raw, msg, state}) => {
-				// console.log(state.midiMap.devices.inputs, raw.input);
-				const deviceIndex = state.midiMap.devices.inputs.indexOf(raw.input);
-
-				actions.midiMap.noteOn(
-					deviceIndex,
-					msg.channel,
-					msg.note.key + msg.note.octave,
-					msg.velocity || 0
-				);
-
-				if (msg.state === 'noteOn' && (
-					[-1, deviceIndex].indexOf(state.session.tracks[0].input.device) > -1
-					&& msg.channel === state.session.tracks[0].input.channel
-				)
-					&& state.studio.playing && state.studio.recording && state.studio.tick.index > -1) {
-					setTimeout(
-						() => actions.sequencer.update(
-							state.sequencer.bar, msg.note.number - 60, state.studio.tick.index + 1, msg.velocity),
-						100
-					);
-				}
-			})
-	);
-
-	subs.push(
-		parsedMidiMsg$
-			// .map(midiData => (console.log({midiData}), midiData))
-			.filter(({msg}) => ['pitchBend'].indexOf(msg.state) > -1)
-			.throttle(1)
-			.subscribe(({msg}) => actions.set(['midiMap', 'pitch'], msg.pitchValue))
-	);
-
-	subs.push(
-		parsedMidiMsg$
-			.filter(({msg}) => msg.state === 'bankSelect')
-			.filter(({msg}) => msg.bank >= 0 && msg.bank < 16)
-			.subscribe(({msg}) =>
-				fn.pipe(
-					() => ({
-						track: msg.bank % 4,
-						row: parseInt(
-							(msg.bank >= 4 && msg.bank < 8
-							|| msg.bank >= 12 && msg.bank < 16
-								? msg.bank - 4
-								: msg.bank + 4) / 4,
-							10
-						)
-					}),
-					({track, row}) => (
-						actions.session.activate(track, row),
-						actions.session.select(track, row)
-					)
-				)()
-			)
-	);
-
-	// controller
-	subs.push(
-		midiState$
-			.filter(({data}) => data.msg.state === 'controller')
-			.distinctUntilChanged(({data}) => data.msg.value)
-			.throttle(10)
-			.subscribe(({data, state}) => {
-				let mmap = state.midiMap.map.find(m =>
-					m[0] === data.msg.state
-					&& m[1] === data.msg.controller
-				);
-				// console.log(mmap);
-				if (mmap) {
-					let [msgType, msgVal, propPath, ...valMods] = mmap;
-					// vca
-					if (propPath[0] === 'instrument' && propPath[1] === 'eg')
-						propPath = ['instrument', `vca${state.instrument.vcaOn + 1}`, propPath[2]];
-					// value
-					let val = prepVal(...valMods)(data.msg.value);
-					// console.log(propPath, val);
-					actions.change(propPath[0], propPath.slice(1), val);
-				}
-			})
-		);
-
-	unhook = () => subs.forEach(sub => sub.unsubscribe());
+	unhook = () => subs.forEach(sub => sub.dispose());
 };
 
 module.exports = {
+	actions,
 	hook,
-	unhook
+	unhook: () => unhook()
 };

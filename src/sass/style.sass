@@ -34,9 +34,16 @@ button
 		margin-left: 3px
 
 #ui
+	position: absolute
+	top: 0px
+	left: 0px
+	width: 100%
+	height: 100%
+	background: #2a68a71c
+	padding: 0px 28px
 	header
 		display: block
-		margin: 30px 10px
+		margin: 32px 10px
 		width: 764px
 		height: 42px
 		line-height: 42px
@@ -55,7 +62,7 @@ button
 				+ui-button(32px, 2px, 1px)
 				min-width: 32px
 				font-size: 22px
-			background: #fafafa
+			background: #f7f8ff
 			color: #333
 			border: 0px
 			border-radius: 10px
@@ -68,31 +75,104 @@ button
 		float: left
 		height: 160px
 		width: 764px
-		box-shadow: 1px 1px 10px #ccc
+		background: #f7f8ff
+		box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ddd
 		margin: 10px
+	fieldset
+		line-height: 36px
+		height: 36px
+		border: 0px
+		box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ddd
+		padding: 0px
+		border-radius: 7px
+		margin: 10px
+		padding-left: 36px
+		position: relative
+		vertical-align: middle
+		width: 764px
+		font-size: 0.8em
+		background: #f7f8ff
+		> *
+			display: inline-block
+			float: left
+		legend
+			line-height: 36px
+			font-size: 1em
+			font-weight: bold
+			position: absolute
+			left: 0px
+			top: 0px
+			width: 36px
+			text-align: center
+			img
+				width: 36px
+				height: 36px
+		label
+			line-height: 36px
+			padding: 0px 10px
+		select, input
+			box-sizing: border-box
+			margin: 7px 0px
+			line-height: 36px
+			border-radius: 4px
+			border: 1px solid #ccc
+			height: 24px
+			vertical-align: middle
+			outline: none
+		label
+			padding: 0px 8px
+		input[type="number"]
+			padding-left: 4px
+			width: 36px
+			outline: none
+		button
+			padding: 0px
+			width: 36px
+			height: 36px
+			line-height: 36px
+			text-align: center
+			border-radius: 7px
+			font-size: 1.4em
+			border: 0px
+			background: rgba(#2a68a7, 0)
+			transition: .3s
+			outline: none
+			cursor: pointer
+			&.on
+				padding-top: 1px
+				background: rgba(#2a68a7, 0.03)
+				box-shadow: inset 1px 1px 3px #abc
+			> i.fa
+				width: 36px
+				height: 36px
+				line-height: 36px
+				text-align: center
+			&.right
+				float: right
 	.channels
 		display: block
 		clear: both
 		.channel
 			width: 176px
 			display: inline-block
-			box-shadow: 1px 1px 10px #ccc
+			box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ddd
 			border-radius: 7px
+			background: #f7f8ff
 			margin: 10px
 			button.stop
 				+ui-button(64px, 16px, 2px)
 				display: block
 				float: left
 				width: 64px
-				background: #fafafa
+				background: #fff
 				color: #333
 				border: 0px
 				border-radius: 100%
 				transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
-				box-shadow: 1px 1px 10px #ccc
+				box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ccc
 				opacity: 0.9
 				&:hover
-					box-shadow: 1px 1px 25px #aaa
+					box-shadow: 1px 1px 12px #aaa
 					opacity: 1
 			input.vertical
 				-webkit-appearance: none
@@ -113,29 +193,29 @@ button
 				width: 128px
 				clear: both
 				float: left
-				background: #fafafa
+				background: #fff
 				background-image: url('../assets/play-rec.png')
 				color: #333
 				border: 0px
 				border-radius: 100%
 				transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
-				box-shadow: 1px 1px 20px #ccc
+				box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ddd
 				opacity: 0.9
 				&:hover
-					box-shadow: 1px 1px 50px #aaa
+					box-shadow: 1px 1px 15px #aaa
 					opacity: 1
 				&.play
 					background-image: url('../assets/play-rec-play.png')
-					box-shadow: 1px 1px 20px green
+					box-shadow: 1px 1px 10px green
 					&:hover
-						box-shadow: 1px 1px 50px green
+						box-shadow: 1px 1px 15px green
 				&.record
 					background-image: url('../assets/play-rec-record.png')
-					box-shadow: 1px 1px 20px red
+					box-shadow: 1px 1px 10px red
 					&:hover
-						box-shadow: 1px 1px 50px red
+						box-shadow: 1px 1px 15px red
 				&.overdub
 					background-image: url('../assets/play-rec-overdub.png')
-					box-shadow: 1px 1px 20px #FFBF00
+					box-shadow: 1px 1px 10px #FFBF00
 					&:hover
-						box-shadow: 1px 1px 50px #FFBF00
+						box-shadow: 1px 1px 15px #FFBF00

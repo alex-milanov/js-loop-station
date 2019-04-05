@@ -35467,7 +35467,13 @@ const initial = {
 };
 
 // actions
-const toggle = path => state => obj.patch(state, path, !obj.sub(state, path));
+
+const set = (key, value) => state => obj.patch(state, key, value);
+const toggle = key => state => obj.patch(state, key, !obj.sub(state, key));
+const arrToggle = (key, value) => state =>
+	obj.patch(state, key,
+		arr.toggle(obj.sub(state, key), value)
+	);
 
 const change = (channel, param, value) => state => Object.assign(
 	obj.patch(state, ['channels', channel, param], value),
@@ -35530,7 +35536,9 @@ const ping = () => state => state;
 
 module.exports = {
 	initial,
+	set,
 	toggle,
+	arrToggle,
 	change,
 	playRec,
 	stop,
@@ -35553,7 +35561,6 @@ const {obj, arr} = require('iblokz-data');
 // util
 const a = require('./util/audio');
 window.a = a;
-const midi = require('./util/midi')();
 
 // app
 const app = require('./util/app');
@@ -35566,6 +35573,9 @@ const state$ = new Rx.BehaviorSubject();
 let visuals = require('./services/visuals.js');
 // audio
 let audio = require('./services/audio.js');
+// midi
+let midi = require('./services/midi.js');
+actions = app.attach(actions, 'midi', midi.actions);
 
 // shared objects
 
@@ -35576,6 +35586,7 @@ if (module.hot) {
     h => module.hot.accept("./actions", h)
 	).flatMap(() => {
 		actions = app.adapt(require('./actions'));
+		actions = app.attach(actions, 'midi', midi.actions);
 		return actions.stream.startWith(state => state);
 	}).merge(actions.stream);
 	// ui
@@ -35596,6 +35607,15 @@ if (module.hot) {
 		audio.unhook();
 		audio = require('./services/audio.js');
 		audio.hook({state$, actions});
+		actions.ping();
+	});
+	// midi
+	module.hot.accept("./services/midi.js", function() {
+		midi.unhook();
+		midi = require('./services/midi.js');
+		actions = app.adapt(require('./actions'));
+		actions = app.attach(actions, 'midi', midi.actions);
+		midi.hook({state$, actions});
 		actions.ping();
 	});
 } else {
@@ -35621,77 +35641,7 @@ vdom.patchStream(ui$, '#ui');
 // hooks
 visuals.hook({state$, actions});
 audio.hook({state$, actions});
-
-let midiMap = {
-	pads: {
-		// 60: ['playRec', '0'],
-		// 61: ['playRec', '1'],
-		// 62: ['playRec', '2'],
-		// 63: ['playRec', '3'],
-		// 64: ['stop', '0'],
-		// 65: ['stop', '1'],
-		// 66: ['stop', '2'],
-		// 67: ['stop', '3'],
-		36: ['playRec', '0'],
-		37: ['playRec', '1'],
-		38: ['playRec', '2'],
-		39: ['playRec', '3'],
-		40: ['stop', '0'],
-		41: ['stop', '1'],
-		42: ['stop', '2'],
-		43: ['stop', '3']
-	},
-	controller: {
-		24: ['change', '0', 'gain'],
-		25: ['change', '1', 'gain'],
-		26: ['change', '2', 'gain'],
-		27: ['change', '3', 'gain'],
-		64: ['playRec']
-	}
-};
-
-// hook midi signals
-// midi.access$.subscribe(); // data => actions.midiMap.connect(data));
-
-if (midi) midi.msg$
-	.map(raw => ({msg: midi.parseMidiMsg(raw.msg), raw}))
-	.filter(data => data.msg.binary !== '11111000') // ignore midi clock for now
-	.map(data => (console.log(`midi: ${data.msg.binary}`, data.msg), data))
-	.withLatestFrom(state$, (data, state) => ({data, state}))
-	.subscribe(({data, state}) => {
-	// .subscribe(data => {
-		let mmap;
-		let value;
-		switch (data.msg.state) {
-			case 'noteOn':
-				if (midiMap.pads[data.msg.note.number] && data.msg.channel === 1) {
-					mmap = midiMap.pads[data.msg.note.number];
-					// if (data.msg.note.channel !== 10) noteOn(state.instrument, data.msg.note, data.msg.velocity);
-					if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
-						actions[mmap[0]](mmap[1], mmap[2]);
-				}
-				break;
-			case 'noteOff':
-				break;
-			case 'controller':
-				if (midiMap.controller[data.msg.controller]) {
-					mmap = midiMap.controller[data.msg.controller];
-					if (mmap[0] === 'playRec') {
-						if (data.msg.value === 1) actions.playRec(state.lastAffected);
-					} else {
-						value = parseFloat(
-							(mmap[4] || 0) + data.msg.value * (mmap[4] || 1) - data.msg.value * (mmap[3] || 0)
-						).toFixed(mmap[5] || 3);
-						value = (mmap[5] === 0) ? parseInt(value, 10) : parseFloat(value);
-						if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
-							actions[mmap[0]](mmap[1], mmap[2], value);
-					}
-				}
-				break;
-			default:
-				break;
-		}
-	});
+midi.hook({state$, actions});
 
 // livereload impl.
 if (module.hot) {
@@ -35699,7 +35649,7 @@ if (module.hot) {
 	`:35729/livereload.js?snipver=1"></script>`);
 }
 
-},{"./actions":159,"./services/audio.js":161,"./services/visuals.js":162,"./ui":164,"./util/app":166,"./util/audio":171,"./util/midi":174,"iblokz-data":38,"iblokz-snabbdom-helpers":43,"rx":138}],161:[function(require,module,exports){
+},{"./actions":159,"./services/audio.js":161,"./services/midi.js":162,"./services/visuals.js":163,"./ui":165,"./util/app":167,"./util/audio":172,"iblokz-data":38,"iblokz-snabbdom-helpers":43,"rx":138}],161:[function(require,module,exports){
 'use strict';
 // lib
 const Rx = require('rx');
@@ -35841,7 +35791,112 @@ module.exports = {
 	unhook
 };
 
-},{"../util/audio":171,"../util/file":172,"../util/pocket":175,"../util/recorder":176,"audio-buffer-utils":4,"rx":138}],162:[function(require,module,exports){
+},{"../util/audio":172,"../util/file":173,"../util/pocket":176,"../util/recorder":177,"audio-buffer-utils":4,"rx":138}],162:[function(require,module,exports){
+'use strict';
+
+const {obj, fn} = require('iblokz-data');
+
+const midi = require('../util/midi');
+const pocket = require('../util/pocket');
+
+const initial = {
+	device: '-1',
+	devices: [],
+	channel: 1,
+	setup: false,
+	clicks: {
+		36: ['playRec', '0'],
+		37: ['playRec', '1'],
+		38: ['playRec', '2'],
+		39: ['playRec', '3'],
+		40: ['stop', '0'],
+		41: ['stop', '1'],
+		42: ['stop', '2'],
+		43: ['stop', '3']
+	},
+	dblClicks: {
+		40: ['clear', '0'],
+		41: ['clear', '1'],
+		42: ['clear', '2'],
+		43: ['clear', '3']
+	},
+	controller: {
+		24: ['change', '0', 'gain'],
+		25: ['change', '1', 'gain'],
+		26: ['change', '2', 'gain'],
+		27: ['change', '3', 'gain'],
+		64: ['playRec']
+	}
+};
+
+const connect = devices => state => obj.patch(state, 'midi', {
+	devices
+});
+
+const actions = {
+	initial,
+	connect
+};
+
+let unhook = () => {};
+
+const hook = ({state$, actions, tapTempo}) => {
+	let subs = [];
+
+	const {devices$, msg$} = midi.init();
+	const parsedMidiMsg$ = msg$
+		.map(raw => ({msg: midi.parseMidiMsg(raw.msg), raw}))
+		// .map(data => (console.log(data), data))
+		.share();
+
+	// midi device access
+	subs.push(
+		devices$.subscribe(data => actions.midi.connect(data))
+	);
+
+	// hook midi signals
+	// midi.access$.subscribe(); // data => actions.state.midi.connect(data));
+	const midiClicks$ = parsedMidiMsg$.filter(data => data.msg.state === 'noteOn').share();
+	const midiDblClicks$ = midiClicks$
+		.buffer(midiClicks$.debounce(250))
+		.map(list => (console.log(list), list))
+		.filter(list => list.length === 2 && list[0].msg.note.number === list[1].msg.note.number)
+		.map(list => list[0]);
+
+	midiClicks$
+		.withLatestFrom(state$, (data, state) => ({data, state}))
+		.filter(({data, state}) => (data.raw.input.id === state.midi.device || state.midi.device === '-1')
+			&& state.midi.clicks[data.msg.note.number] && data.msg.channel === state.midi.channel)
+		.subscribe(({data, state}) => {
+			const mmap = state.midi.clicks[data.msg.note.number];
+			if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
+				actions[mmap[0]](mmap[1], mmap[2]);
+		});
+	midiDblClicks$
+		.withLatestFrom(state$, (data, state) => ({data, state}))
+		.filter(({data, state}) => (data.raw.input.id === state.midi.device || state.midi.device === '-1')
+			&& state.midi.dblClicks[data.msg.note.number] && data.msg.channel === state.midi.channel)
+		.subscribe(({data, state}) => {
+			console.log('double click');
+			const mmap = state.midi.dblClicks[data.msg.note.number];
+			if (actions[mmap[0]] && actions[mmap[0]] instanceof Function)
+				actions[mmap[0]](mmap[1], mmap[2]);
+		});
+	// clickStream
+  // .buffer(clickStream.debounce(250))
+  // .map(list => list.length)
+  // .filter(x => x === 2)
+
+	unhook = () => subs.forEach(sub => sub.dispose());
+};
+
+module.exports = {
+	actions,
+	hook,
+	unhook: () => unhook()
+};
+
+},{"../util/midi":175,"../util/pocket":176,"iblokz-data":38}],163:[function(require,module,exports){
 'use strict';
 // lib
 const Rx = require('rx');
@@ -35877,7 +35932,7 @@ module.exports = {
 	unhook
 };
 
-},{"../util/gfx":173,"../util/pocket":175,"rx":138}],163:[function(require,module,exports){
+},{"../util/gfx":174,"../util/pocket":176,"rx":138}],164:[function(require,module,exports){
 'use strict';
 
 const {section, button, span, i, input} = require('iblokz-snabbdom-helpers');
@@ -35903,13 +35958,13 @@ module.exports = ({params, chan, actions}) => section('.channel', [
 	}, '')
 ]);
 
-},{"iblokz-snabbdom-helpers":43}],164:[function(require,module,exports){
+},{"iblokz-snabbdom-helpers":43}],165:[function(require,module,exports){
 'use strict';
 
 // dom
 const {
 	header, section, button, span, h1,
-	h4, i, hr, canvas, input,
+	h4, i, hr, canvas, input, img,
 	fieldset, legend, label, select, option
 } = require('iblokz-snabbdom-helpers');
 const {context} = require('../util/audio');
@@ -35956,11 +36011,40 @@ module.exports = ({state, actions}) => section('#ui',
 				span('Quantize')
 			])
 		]),
-		// fieldset('.midi', [
-		// 	legend('MIDI Map'),
-		// 	label('Input'),
-		// 	select()
-		// ]),
+		fieldset('.midi', [
+			legend(img(`[src="assets/midi.svg"]`)),
+			label('Input'),
+			select(`[name="device"]`, {
+				props: {value: state.midi.device},
+				on: {change: ev => actions.set(['midi', 'device'], ev.target.value)}
+			}, [].concat(
+				option(`[value="-1"]`, {
+					attrs: {
+						selected: state.midi.device === '-1'
+					}
+				}, 'Any device'),
+				state.midi.devices.inputs.map((device, k) =>
+					option(`[value="${device.id}"]`, {
+						attrs: {
+							selected: device.id === state.midi.device
+						}
+					}, device.name)
+				)
+			)),
+			label('Channel'),
+			input(`[name="channel"][type="number"][size="3"]`, {
+				props: {value: state.midi.channel},
+				on: {input: ev => actions.set(['midi', 'channel'], parseInt(ev.target.value, 10))}
+			}),
+			button('.right', {
+				class: {
+					on: state.midi.setup
+				},
+				on: {
+					click: () => actions.toggle(['midi', 'setup'])
+				}
+			}, i('.fa.fa-sliders'))
+		]),
 		section('.channels',
 			Object.keys(state.channels).map(chan => channel({params: state.channels[chan], chan, actions}))
 		),
@@ -35968,7 +36052,7 @@ module.exports = ({state, actions}) => section('#ui',
 	]
 );
 
-},{"../util/audio":171,"./channel":163,"./suspended":165,"iblokz-snabbdom-helpers":43}],165:[function(require,module,exports){
+},{"../util/audio":172,"./channel":164,"./suspended":166,"iblokz-snabbdom-helpers":43}],166:[function(require,module,exports){
 'use strict';
 
 const {
@@ -35994,7 +36078,7 @@ module.exports = ({state, actions}) => div([
 	}}, 'Resume')
 ]);
 
-},{"../util/audio":171,"iblokz-snabbdom-helpers":43}],166:[function(require,module,exports){
+},{"../util/audio":172,"iblokz-snabbdom-helpers":43}],167:[function(require,module,exports){
 'use strict';
 
 // lib
@@ -36038,7 +36122,7 @@ module.exports = {
 	attach
 };
 
-},{"iblokz-data":38,"rx":138}],167:[function(require,module,exports){
+},{"iblokz-data":38,"rx":138}],168:[function(require,module,exports){
 'use strict';
 
 const {obj, fn} = require('iblokz-data');
@@ -36102,7 +36186,7 @@ module.exports = {
 	noteOff
 };
 
-},{"../core":168,"iblokz-data":38}],168:[function(require,module,exports){
+},{"../core":169,"iblokz-data":38}],169:[function(require,module,exports){
 'use strict';
 
 const {obj, fn} = require('iblokz-data');
@@ -36189,7 +36273,7 @@ module.exports = {
 	schedule
 };
 
-},{"iblokz-data":38}],169:[function(require,module,exports){
+},{"iblokz-data":38}],170:[function(require,module,exports){
 'use strict';
 
 const {obj, fn} = require('iblokz-data');
@@ -36232,7 +36316,7 @@ module.exports = {
 	start
 };
 
-},{"../core":168,"iblokz-data":38}],170:[function(require,module,exports){
+},{"../core":169,"iblokz-data":38}],171:[function(require,module,exports){
 'use strict';
 
 const {obj, fn} = require('iblokz-data');
@@ -36304,7 +36388,7 @@ module.exports = {
 	update
 };
 
-},{"../core":168,"iblokz-data":38}],171:[function(require,module,exports){
+},{"../core":169,"iblokz-data":38}],172:[function(require,module,exports){
 'use strict';
 
 const {obj, fn} = require('iblokz-data');
@@ -36487,7 +36571,7 @@ module.exports = {
 	noteOff: adsr.noteOff
 };
 
-},{"./controls/adsr":167,"./core":168,"./effects/lfo":169,"./effects/reverb":170,"iblokz-data":38}],172:[function(require,module,exports){
+},{"./controls/adsr":168,"./core":169,"./effects/lfo":170,"./effects/reverb":171,"iblokz-data":38}],173:[function(require,module,exports){
 'use strict';
 
 const Rx = require('rx');
@@ -36538,7 +36622,7 @@ module.exports = {
 	save
 };
 
-},{"file-saver":35,"iblokz-data":38,"jszip":75,"rx":138}],173:[function(require,module,exports){
+},{"file-saver":35,"iblokz-data":38,"jszip":75,"rx":138}],174:[function(require,module,exports){
 'use strict';
 
 const webAudioBuilder = require('waveform-data/webaudio');
@@ -36565,7 +36649,7 @@ const visualize = (analyser, ctx) => {
 
 			analyser.getByteTimeDomainData(dataArray);
 
-			ctx.fillStyle = 'rgb(256, 256, 256)';
+			ctx.fillStyle = '#f7f8ff';
 			ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
 			ctx.lineWidth = 2;
@@ -36601,17 +36685,24 @@ module.exports = {
 	visualize
 };
 
-},{"../util/audio":171,"waveform-data/webaudio":158}],174:[function(require,module,exports){
+},{"../util/audio":172,"waveform-data/webaudio":158}],175:[function(require,module,exports){
 'use strict';
 
 const Rx = require('rx');
 const $ = Rx.Observable;
 
+const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
 const numberToNote = number => ({
-	key: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][number - parseInt(number / 12, 10) * 12],
-	octave: parseInt(number / 12, 10),
+	key: keys[number % 12],
+	octave: parseInt((number - number % 12) / 12, 10) - 1,
 	number
 });
+
+const noteToNumber = note => (
+	keys.indexOf(note.replace(/[0-9]+/, '')) +
+	(parseInt(note.replace(/[A-Z#b]+/, ''), 10) + 1) * 12
+);
 
 const parseMidiMsg = event => {
 	// Mask off the lower nibble (MIDI channel, which we don't care about)
@@ -36657,6 +36748,12 @@ const parseMidiMsg = event => {
 				value: parseFloat((event.data[2] / 127).toFixed(2))
 			};
 			break;
+		case "1100":
+			msg = {
+				state: "bankSelect",
+				bank: event.data[1]
+			};
+			break;
 		default:
 			msg = {
 				state: false
@@ -36696,7 +36793,7 @@ const parseAccess = access => {
 	let inputs = [];
 	let outputs = [];
 
-	console.log(access);
+	// console.log(access);
 
 	access.inputs.forEach(input => inputs.push(input));
 	access.outputs.forEach(output => outputs.push(output));
@@ -36704,18 +36801,18 @@ const parseAccess = access => {
 };
 
 const init = () => {
-	if (!navigator.requestMIDIAccess)
-		return false;
-
-	const access$ = $.fromPromise(navigator.requestMIDIAccess())
+	const devices$ = new Rx.Subject();
+	$.fromPromise(navigator.requestMIDIAccess())
 		.flatMap(access => $.create(stream => {
 			access.onstatechange = connection => stream.onNext(connection.currentTarget);
 		}).startWith(access))
 		.map(parseAccess)
-		.map(data => (console.log('midi access', data), data))
-		.share();
+		// .map(data => (console.log('midi access', data), data))
+		.subscribe(device => devices$.onNext(device));
+		// .share();
 
-	const msg$ = access$.flatMap(
+	const msg$ = new Rx.Subject();
+	devices$.flatMap(
 		({access, inputs}) => inputs.reduce(
 				(msgStream, input) => msgStream.merge(
 					$.fromEventPattern(h => {
@@ -36723,19 +36820,23 @@ const init = () => {
 					})
 					.map(msg => ({access, input, msg}))
 				), $.empty()
-			).share()
-	);
+			)
+	).subscribe(msg => msg$.onNext(msg));
 
 	return {
-		parseMidiMsg,
-		access$,
+		devices$,
 		msg$
 	};
 };
 
-module.exports = init;
+module.exports = {
+	init,
+	numberToNote,
+	noteToNumber,
+	parseMidiMsg
+};
 
-},{"rx":138}],175:[function(require,module,exports){
+},{"rx":138}],176:[function(require,module,exports){
 'use strict';
 
 const Rx = require('rx');
@@ -36766,7 +36867,7 @@ module.exports = {
 	stream: pocket$
 };
 
-},{"iblokz-data":38,"rx":138}],176:[function(require,module,exports){
+},{"iblokz-data":38,"rx":138}],177:[function(require,module,exports){
 'use strict';
 
 // lib

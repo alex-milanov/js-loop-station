@@ -18,7 +18,13 @@ const initial = {
 };
 
 // actions
-const toggle = path => state => obj.patch(state, path, !obj.sub(state, path));
+
+const set = (key, value) => state => obj.patch(state, key, value);
+const toggle = key => state => obj.patch(state, key, !obj.sub(state, key));
+const arrToggle = (key, value) => state =>
+	obj.patch(state, key,
+		arr.toggle(obj.sub(state, key), value)
+	);
 
 const change = (channel, param, value) => state => Object.assign(
 	obj.patch(state, ['channels', channel, param], value),
@@ -81,7 +87,9 @@ const ping = () => state => state;
 
 module.exports = {
 	initial,
+	set,
 	toggle,
+	arrToggle,
 	change,
 	playRec,
 	stop,

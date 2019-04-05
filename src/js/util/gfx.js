@@ -24,7 +24,7 @@ const visualize = (analyser, ctx) => {
 
 			analyser.getByteTimeDomainData(dataArray);
 
-			ctx.fillStyle = 'rgb(256, 256, 256)';
+			ctx.fillStyle = '#f7f8ff';
 			ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
 			ctx.lineWidth = 2;
