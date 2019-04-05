@@ -1,4 +1,7 @@
 'use strict';
+
+const {obj, fn} = require('iblokz-data');
+
 // lib
 const Rx = require('rx');
 const $ = Rx.Observable;
@@ -8,6 +11,20 @@ const a = require('../util/audio');
 const bufferUtils = require('audio-buffer-utils');
 const rec = require('../util/recorder');
 const file = require('../util/file');
+
+const initial = {
+	device: '-1',
+	devices: []
+};
+
+const connect = devices => state => obj.patch(state, 'audio', {
+	devices
+});
+
+const actions = {
+	initial,
+	connect
+};
 
 let unhook = () => {};
 
@@ -23,6 +40,13 @@ const createAnalyser = context => {
 
 const hook = ({state$, actions}) => {
 	let subs = [];
+
+	// devices
+	$.fromEvent(navigator.mediaDevices, 'devicechange')
+		.startWith({})
+		.flatMap(() => $.fromPromise(navigator.mediaDevices.enumerateDevices()))
+		.map(devices => devices.filter(d => d.kind === 'audioinput'))
+		.subscribe(devices => actions.audio.connect(devices));
 
 	const analyser$ = $.interval(100)
 		.map(() => a.context)
@@ -131,10 +155,11 @@ const hook = ({state$, actions}) => {
 			})
 		);
 
-	unhook = () => subs.forEach(sub => sub.unsubscribe());
+	unhook = () => subs.forEach(sub => sub.dispose());
 };
 
 module.exports = {
+	actions,
 	hook,
-	unhook
+	unhook: () => unhook()
 };

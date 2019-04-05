@@ -23,6 +23,7 @@ const state$ = new Rx.BehaviorSubject();
 let visuals = require('./services/visuals.js');
 // audio
 let audio = require('./services/audio.js');
+actions = app.attach(actions, 'audio', audio.actions);
 // midi
 let midi = require('./services/midi.js');
 actions = app.attach(actions, 'midi', midi.actions);
@@ -36,6 +37,7 @@ if (module.hot) {
     h => module.hot.accept("./actions", h)
 	).flatMap(() => {
 		actions = app.adapt(require('./actions'));
+		actions = app.attach(actions, 'audio', audio.actions);
 		actions = app.attach(actions, 'midi', midi.actions);
 		return actions.stream.startWith(state => state);
 	}).merge(actions.stream);
@@ -56,6 +58,9 @@ if (module.hot) {
 	module.hot.accept("./services/audio.js", function() {
 		audio.unhook();
 		audio = require('./services/audio.js');
+		actions = app.adapt(require('./actions'));
+		actions = app.attach(actions, 'audio', audio.actions);
+		actions = app.attach(actions, 'midi', midi.actions);
 		audio.hook({state$, actions});
 		actions.ping();
 	});
@@ -64,6 +69,7 @@ if (module.hot) {
 		midi.unhook();
 		midi = require('./services/midi.js');
 		actions = app.adapt(require('./actions'));
+		actions = app.attach(actions, 'audio', audio.actions);
 		actions = app.attach(actions, 'midi', midi.actions);
 		midi.hook({state$, actions});
 		actions.ping();

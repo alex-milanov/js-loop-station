@@ -50,6 +50,22 @@ module.exports = ({state, actions}) => section('#ui',
 				span('Quantize')
 			])
 		]),
+		fieldset('.audio', [
+			legend(i('.fa.fa-microphone')),
+			label('Input'),
+			select(`[name="audioDevice"]`, {
+				props: {value: state.audio.device},
+				on: {change: ev => actions.set(['audio', 'device'], ev.target.value)}
+			}, [].concat(
+				state.audio.devices.map((device, k) =>
+					option(`[value="${device.deviceId}"]`, {
+						attrs: {
+							selected: device.deviceId === state.audio.device
+						}
+					}, device.label)
+				)
+			))
+		]),
 		fieldset('.midi', [
 			legend(img(`[src="assets/midi.svg"]`)),
 			label('Input'),
