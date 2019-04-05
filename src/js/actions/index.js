@@ -4,7 +4,6 @@ const {arr, obj} = require('iblokz-data');
 
 // initial
 const initial = {
-	audio: false,
 	mic: false,
 	lastAffected: '0',
 	baseLength: 0,

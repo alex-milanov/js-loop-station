@@ -13,7 +13,13 @@ const rec = require('../util/recorder');
 const file = require('../util/file');
 
 const initial = {
-	device: '-1',
+	on: false,
+	deviceInputs: {
+		0: 'default',
+		1: 'default',
+		2: 'default',
+		3: 'default'
+	},
 	devices: []
 };
 
@@ -54,12 +60,32 @@ const hook = ({state$, actions}) => {
 		.filter(context => context.state !== 'suspended')
 		.map(createAnalyser);
 
-	let source = {
-		type: 'soundSource',
-		node: null,
-		stream: null,
-		out: []
-	};
+	let source = [
+		{
+			type: 'soundSource',
+			node: null,
+			stream: null,
+			out: []
+		},
+		{
+			type: 'soundSource',
+			node: null,
+			stream: null,
+			out: []
+		},
+		{
+			type: 'soundSource',
+			node: null,
+			stream: null,
+			out: []
+		},
+		{
+			type: 'soundSource',
+			node: null,
+			stream: null,
+			out: []
+		}
+	];
 
 	let vca;
 
@@ -69,24 +95,31 @@ const hook = ({state$, actions}) => {
 		a.connect(vca, analyser);
 	});
 
-	state$.distinctUntilChanged(state => state.audio).subscribe(state => {
-		if (state.audio) {
-			navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
-				a.disconnect(source, vca);
-				source.node = a.context.createMediaStreamSource(stream);
-				if (state.mic) source.node.connect(a.context.destination);
-				source.stream = stream;
+	state$
+		.distinctUntilChanged(state => state.audio.on + state.audio.deviceInputs)
+		// .filter(state => state.audio.on)
+		.subscribe(state => {
+			[0, 1, 2, 3].forEach(index => {
+				if (state.audio.on) {
+					navigator.mediaDevices.getUserMedia({audio: {
+						deviceId: state.audio.deviceInputs[index]
+					}}).then(stream => {
+						a.disconnect(source[index], vca);
+						source[index].node = a.context.createMediaStreamSource(stream);
+						if (state.mic) source[index].node.connect(a.context.destination);
+						source[index].stream = stream;
+					});
+				} else if (source[index].node) {
+					source[index].node.disconnect();
+					source[index].node = null;
+					source[index].stream = null;
+				}
 			});
-		} else if (source.node) {
-			source.node.disconnect();
-			source.node = null;
-			source.stream = null;
-		}
-	});
+		});
 
 	state$.distinctUntilChanged(state => state.mic).subscribe(state => {
-		if (state.mic) source.node.connect(a.context.destination);
-		else if (source.node) source.node.disconnect();
+		// if (state.mic) source.node.connect(a.context.destination);
+		// else if (source.node) source.node.disconnect();
 	});
 
 	let buffers = {};
@@ -125,8 +158,8 @@ const hook = ({state$, actions}) => {
 			.subscribe(state => {
 				if (state.audio) {
 					if (state.channels[channel].process === 'record' || state.channels[channel].process === 'overdub') {
-						console.log(rec.record, source.stream);
-						recording[channel] = rec.record(source.stream, a.context);
+						console.log(channel, rec.record, source[channel].stream);
+						recording[channel] = rec.record(source[channel].stream, a.context);
 						recording[channel].data$
 							.flatMap(data => file.load(data, 'arrayBuffer'))
 							.flatMap(arrayBuffer => $.fromPromise(a.context.decodeAudioData(arrayBuffer)))

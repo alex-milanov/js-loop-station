@@ -2473,13 +2473,15 @@ button i.fa + span {
       padding: 0px 10px; }
     #ui fieldset select, #ui fieldset input {
       box-sizing: border-box;
-      margin: 7px 0px;
+      margin: 7px;
       line-height: 36px;
       border-radius: 4px;
       border: 1px solid #ccc;
       height: 24px;
       vertical-align: middle;
       outline: none; }
+    #ui fieldset select {
+      max-width: 144px; }
     #ui fieldset label {
       padding: 0px 8px; }
     #ui fieldset input[type="number"] {

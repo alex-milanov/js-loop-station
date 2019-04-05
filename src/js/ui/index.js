@@ -29,12 +29,12 @@ module.exports = ({state, actions}) => section('#ui',
 					}
 				}))
 			]),
-			button('.toggle[title="Audio Input On/Off"]', {on: {click: () => actions.toggle('audio')}}, [
+			button('.toggle[title="Audio Input On/Off"]', {on: {click: () => actions.toggle(['audio', 'on'])}}, [
 				i(({
 					class: {
 						'fa': true,
-						'fa-toggle-on': state.audio,
-						'fa-toggle-off': !state.audio
+						'fa-toggle-on': state.audio.on,
+						'fa-toggle-off': !state.audio.on
 					}
 				})),
 				span('Audio Input')
@@ -53,14 +53,50 @@ module.exports = ({state, actions}) => section('#ui',
 		fieldset('.audio', [
 			legend(i('.fa.fa-microphone')),
 			label('Input'),
-			select(`[name="audioDevice"]`, {
-				props: {value: state.audio.device},
-				on: {change: ev => actions.set(['audio', 'device'], ev.target.value)}
+			select(`[name="audioDevice0"]`, {
+				props: {value: state.audio.deviceInputs[0]},
+				on: {change: ev => actions.set(['audio', 'deviceInputs', 0], ev.target.value)}
 			}, [].concat(
 				state.audio.devices.map((device, k) =>
 					option(`[value="${device.deviceId}"]`, {
 						attrs: {
-							selected: device.deviceId === state.audio.device
+							selected: device.deviceId === state.audio.deviceInputs[0]
+						}
+					}, device.label)
+				)
+			)),
+			select(`[name="audioDevice1"]`, {
+				props: {value: state.audio.deviceInputs[1]},
+				on: {change: ev => actions.set(['audio', 'deviceInputs', 1], ev.target.value)}
+			}, [].concat(
+				state.audio.devices.map((device, k) =>
+					option(`[value="${device.deviceId}"]`, {
+						attrs: {
+							selected: device.deviceId === state.audio.deviceInputs[1]
+						}
+					}, device.label)
+				)
+			)),
+			select(`[name="audioDevice2"]`, {
+				props: {value: state.audio.deviceInputs[2]},
+				on: {change: ev => actions.set(['audio', 'deviceInputs', 2], ev.target.value)}
+			}, [].concat(
+				state.audio.devices.map((device, k) =>
+					option(`[value="${device.deviceId}"]`, {
+						attrs: {
+							selected: device.deviceId === state.audio.deviceInputs[2]
+						}
+					}, device.label)
+				)
+			)),
+			select(`[name="audioDevice3"]`, {
+				props: {value: state.audio.deviceInputs[3]},
+				on: {change: ev => actions.set(['audio', 'deviceInputs', 3], ev.target.value)}
+			}, [].concat(
+				state.audio.devices.map((device, k) =>
+					option(`[value="${device.deviceId}"]`, {
+						attrs: {
+							selected: device.deviceId === state.audio.deviceInputs[3]
 						}
 					}, device.label)
 				)
@@ -78,7 +114,7 @@ module.exports = ({state, actions}) => section('#ui',
 						selected: state.midi.device === '-1'
 					}
 				}, 'Any device'),
-				state.midi.devices.inputs.map((device, k) =>
+				state.midi.devices && state.midi.devices.inputs.map((device, k) =>
 					option(`[value="${device.id}"]`, {
 						attrs: {
 							selected: device.id === state.midi.device
