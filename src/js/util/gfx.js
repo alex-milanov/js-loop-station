@@ -24,8 +24,9 @@ const visualize = (analyser, ctx) => {
 
 			analyser.getByteTimeDomainData(dataArray);
 
-			ctx.fillStyle = '#f7f8ff';
-			ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+			// ctx.fillStyle = '#f7f8ff';
+			ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+			// ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
 			ctx.lineWidth = 2;
 			ctx.strokeStyle = 'rgb(0, 0, 0)';

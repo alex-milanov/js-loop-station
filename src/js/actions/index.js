@@ -36,7 +36,7 @@ const playRec = channel => state => Object.assign(obj.patch(state, ['channels', 
 	layers: ['record', 'overdub'].indexOf(state.channels[channel].process) > -1
 		? state.channels[channel].layers + 1
 		: state.channels[channel].layers,
-	process: (state.audio)
+	process: (state.audio.on)
 		? (state.channels[channel].process === 'empty') ? 'record'
 			: (state.channels[channel].process === 'play')
 				? 'overdub' : 'play'

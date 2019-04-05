@@ -7,6 +7,7 @@ const {
 	fieldset, legend, label, select, option
 } = require('iblokz-snabbdom-helpers');
 const {context} = require('../util/audio');
+const {obj, fn} = require('iblokz-data');
 // components
 const suspended = require('./suspended');
 const channel = require('./channel');
@@ -114,7 +115,7 @@ module.exports = ({state, actions}) => section('#ui',
 						selected: state.midi.device === '-1'
 					}
 				}, 'Any device'),
-				state.midi.devices && state.midi.devices.inputs.map((device, k) =>
+				(obj.sub(state, ['midi', 'devices', 'inputs']) || []).map((device, k) =>
 					option(`[value="${device.id}"]`, {
 						attrs: {
 							selected: device.id === state.midi.device

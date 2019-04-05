@@ -2481,7 +2481,7 @@ button i.fa + span {
       vertical-align: middle;
       outline: none; }
     #ui fieldset select {
-      max-width: 144px; }
+      max-width: 152px; }
     #ui fieldset label {
       padding: 0px 8px; }
     #ui fieldset input[type="number"] {

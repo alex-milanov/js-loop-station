@@ -35485,7 +35485,7 @@ const playRec = channel => state => Object.assign(obj.patch(state, ['channels', 
 	layers: ['record', 'overdub'].indexOf(state.channels[channel].process) > -1
 		? state.channels[channel].layers + 1
 		: state.channels[channel].layers,
-	process: (state.audio)
+	process: (state.audio.on)
 		? (state.channels[channel].process === 'empty') ? 'record'
 			: (state.channels[channel].process === 'play')
 				? 'overdub' : 'play'
@@ -36031,6 +36031,7 @@ const {
 	fieldset, legend, label, select, option
 } = require('iblokz-snabbdom-helpers');
 const {context} = require('../util/audio');
+const {obj, fn} = require('iblokz-data');
 // components
 const suspended = require('./suspended');
 const channel = require('./channel');
@@ -36138,7 +36139,7 @@ module.exports = ({state, actions}) => section('#ui',
 						selected: state.midi.device === '-1'
 					}
 				}, 'Any device'),
-				state.midi.devices && state.midi.devices.inputs.map((device, k) =>
+				(obj.sub(state, ['midi', 'devices', 'inputs']) || []).map((device, k) =>
 					option(`[value="${device.id}"]`, {
 						attrs: {
 							selected: device.id === state.midi.device
@@ -36167,7 +36168,7 @@ module.exports = ({state, actions}) => section('#ui',
 	]
 );
 
-},{"../util/audio":172,"./channel":164,"./suspended":166,"iblokz-snabbdom-helpers":43}],166:[function(require,module,exports){
+},{"../util/audio":172,"./channel":164,"./suspended":166,"iblokz-data":38,"iblokz-snabbdom-helpers":43}],166:[function(require,module,exports){
 'use strict';
 
 const {
@@ -36764,8 +36765,9 @@ const visualize = (analyser, ctx) => {
 
 			analyser.getByteTimeDomainData(dataArray);
 
-			ctx.fillStyle = '#f7f8ff';
-			ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+			// ctx.fillStyle = '#f7f8ff';
+			ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+			// ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
 			ctx.lineWidth = 2;
 			ctx.strokeStyle = 'rgb(0, 0, 0)';
