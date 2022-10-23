@@ -7,12 +7,13 @@ const initial = {
 	mic: false,
 	lastAffected: '0',
 	baseLength: 0,
-	quantize: false,
+	quantize: true,
+	recordMode: 'independent', // synced
 	channels: {
-		0: {process: 'empty', gain: 0.5, layers: 0},
-		1: {process: 'empty', gain: 0.5, layers: 0},
-		2: {process: 'empty', gain: 0.5, layers: 0},
-		3: {process: 'empty', gain: 0.5, layers: 0}
+		0: {process: 'empty', gain: 0.5, layers: 0, duration: 0, startedAt: 0},
+		1: {process: 'empty', gain: 0.5, layers: 0, duration: 0, startedAt: 0},
+		2: {process: 'empty', gain: 0.5, layers: 0, duration: 0, startedAt: 0},
+		3: {process: 'empty', gain: 0.5, layers: 0, duration: 0, startedAt: 0}
 	}
 };
 
@@ -32,7 +33,7 @@ const change = (channel, param, value) => state => Object.assign(
 	}
 );
 
-const playRec = channel => state => Object.assign(obj.patch(state, ['channels', channel], {
+const playRec = (channel, currentTime) => state => Object.assign(obj.patch(state, ['channels', channel], {
 	layers: ['record', 'overdub'].indexOf(state.channels[channel].process) > -1
 		? state.channels[channel].layers + 1
 		: state.channels[channel].layers,
@@ -40,7 +41,8 @@ const playRec = channel => state => Object.assign(obj.patch(state, ['channels', 
 		? (state.channels[channel].process === 'empty') ? 'record'
 			: (state.channels[channel].process === 'play')
 				? 'overdub' : 'play'
-		: state.channels[channel].process
+		: state.channels[channel].process,
+	startedAt: currentTime
 }), {
 	lastAffected: channel
 });
@@ -67,8 +69,7 @@ const stop = channel => state => Object.assign(obj.patch(state, ['channels', cha
 // layers
 
 const clear = channel => state => Object.assign(obj.patch(state, ['channels', channel], {
-	process: 'empty',
-	layers: 0
+	...initial.channels[0]
 }), {
 	lastAffected: channel,
 	// if all are clear set baseLength to 0
@@ -78,6 +79,30 @@ const clear = channel => state => Object.assign(obj.patch(state, ['channels', ch
 		.length > 0)
 		? state.baseLength
 		: 0
+});
+
+const stopAll = () => state => Object.assign({}, state, {
+	channels: Object.keys(state.channels).reduce((channels, channel) => ({
+		...channels,
+		[channel]: state.channels[channel].process !== 'empty'
+			? {...state.channels[channel], process: 'idle'}
+			: state.channels[channel]
+	}), {})
+});
+
+const playAll = currentTime => state => Object.assign({}, state, {
+	channels: Object.keys(state.channels).reduce((channels, channel) => ({
+		...channels,
+		[channel]: state.channels[channel].process !== 'empty'
+			? {...state.channels[channel], process: 'play', startedAt: currentTime}
+			: state.channels[channel]
+	}), {})
+});
+
+const clearAll = currentTime => state => Object.assign({}, state, {
+	channels: initial.channels,
+	baseLength: initial.baseLength,
+	lastAffected: initial.lastAffected
 });
 
 const setBaseLength = baseLength => state => Object.assign({}, state, {baseLength});
@@ -93,6 +118,9 @@ module.exports = {
 	playRec,
 	stop,
 	clear,
+	stopAll,
+	playAll,
+	clearAll,
 	setBaseLength,
 	ping
 };

@@ -2330,12 +2330,6 @@
   overflow: visible;
   clip: auto; }
 
-html {
-  box-sizing: border-box; }
-
-*, *::after, *::before {
-  box-sizing: inherit; }
-
 body {
   font-family: 'Open Sans'; }
 
@@ -2375,9 +2369,6 @@ button i.fa + span {
       font-weight: 400;
       float: left; }
     #ui header .toggle {
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
       user-select: none;
       display: inline-block;
       box-sizing: border-box;
@@ -2399,9 +2390,6 @@ button i.fa + span {
         margin: 3px 2px 1px 2px;
         outline: none; }
       #ui header .toggle.big {
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
         user-select: none;
         display: inline-block;
         box-sizing: border-box;
@@ -2490,7 +2478,6 @@ button i.fa + span {
       outline: none; }
     #ui fieldset button {
       padding: 0px;
-      width: 36px;
       height: 36px;
       line-height: 36px;
       text-align: center;
@@ -2512,6 +2499,41 @@ button i.fa + span {
         text-align: center; }
       #ui fieldset button.right {
         float: right; }
+  #ui .global-controls {
+    display: inline-block;
+    height: 36px;
+    width: 764px;
+    font-size: 0.8em;
+    text-align: center;
+    background: none; }
+    #ui .global-controls button {
+      user-select: none;
+      display: inline-block;
+      box-sizing: border-box;
+      height: 26px;
+      line-height: 22px;
+      cursor: pointer;
+      font-size: 11px;
+      margin: 2px;
+      outline: none;
+      vertical-align: top;
+      min-width: 26px;
+      font-size: 14px;
+      background: #f7f8ff;
+      color: #333;
+      border: 0px;
+      border-radius: 10px;
+      box-shadow: 1px 1px 1px #ccc;
+      padding-right: 10px;
+      padding-left: 4px; }
+      #ui .global-controls button:active {
+        margin: 3px 2px 1px 2px;
+        outline: none; }
+      #ui .global-controls button > i.fa {
+        display: inline-block;
+        height: 26px;
+        line-height: 26px;
+        width: 26px; }
   #ui .channels {
     display: block;
     clear: both; }
@@ -2523,9 +2545,6 @@ button i.fa + span {
       background: #f7f8ff;
       margin: 10px; }
       #ui .channels .channel button.stop {
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
         user-select: none;
         display: inline-block;
         box-sizing: border-box;
@@ -2565,9 +2584,6 @@ button i.fa + span {
           width: 8px;
           height: 48px; }
       #ui .channels .channel button.play-rec {
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
         user-select: none;
         display: inline-block;
         box-sizing: border-box;
@@ -2577,12 +2593,17 @@ button i.fa + span {
         font-size: 62px;
         margin: 16px;
         outline: none;
+        --size: 128px;
+        --fg: #777;
+        --bg: #fff;
+        --pgPercentage: 0;
+        --url: url('../assets/play-rec.png');
         display: block;
         width: 128px;
         clear: both;
         float: left;
         background: #fff;
-        background-image: url("../assets/play-rec.png");
+        background: var(--url), radial-gradient(closest-side, white 95%, transparent 0 100%, white 0), conic-gradient(var(--fg) calc(var(--pgPercentage) * 1%), var(--bg) 0);
         color: #333;
         border: 0px;
         border-radius: 100%;
@@ -2596,17 +2617,20 @@ button i.fa + span {
           box-shadow: 1px 1px 15px #aaa;
           opacity: 1; }
         #ui .channels .channel button.play-rec.play {
-          background-image: url("../assets/play-rec-play.png");
+          --fg: #4BCD4B;
+          --url: url('../assets/play-rec-play.png');
           box-shadow: 1px 1px 10px green; }
           #ui .channels .channel button.play-rec.play:hover {
             box-shadow: 1px 1px 15px green; }
         #ui .channels .channel button.play-rec.record {
-          background-image: url("../assets/play-rec-record.png");
+          --fg: red;
+          --url: url('../assets/play-rec-record.png');
           box-shadow: 1px 1px 10px red; }
           #ui .channels .channel button.play-rec.record:hover {
             box-shadow: 1px 1px 15px red; }
         #ui .channels .channel button.play-rec.overdub {
-          background-image: url("../assets/play-rec-overdub.png");
+          --fg: #FFBF00;
+          --url: url('../assets/play-rec-overdub.png');
           box-shadow: 1px 1px 10px #FFBF00; }
           #ui .channels .channel button.play-rec.overdub:hover {
             box-shadow: 1px 1px 15px #FFBF00; }

@@ -2,14 +2,18 @@
 @import url(//fonts.googleapis.com/css?family=Lobster)
 
 @import 'font-awesome'
-@import 'bourbon'
-@import 'neat'
 
 body
 	font-family: 'Open Sans'
 
+=header-height($h: 32px)
+	display: inline-block
+	height: $h
+	line-height: $h
+
+
 @mixin ui-button($h: 32px, $p: 10px, $m: 1px)
-	+user-select(none)
+	user-select: none
 	display: inline-block
 	box-sizing: border-box
 	height: $h
@@ -33,206 +37,4 @@ button
 	i.fa + span
 		margin-left: 3px
 
-#ui
-	position: absolute
-	top: 0px
-	left: 0px
-	width: 100%
-	height: 100%
-	background: #2a68a71f
-	padding: 0px 28px
-	header
-		display: block
-		margin: 32px 10px
-		width: 764px
-		height: 42px
-		line-height: 42px
-		vertical-align: middle
-		h1
-			margin: 0px
-			font-size: 42px
-			font-family: 'Lobster'
-			color: #f7f8ff
-			text-shadow: 0px 0px 2px #333, 1px 1px 3px #abc
-			font-weight: 400
-			float: left
-		.toggle
-			+ui-button(26px, 2px, 1px)
-			min-width: 26px
-			font-size: 14px
-			&.big
-				+ui-button(32px, 2px, 1px)
-				min-width: 32px
-				font-size: 22px
-			background: #f7f8ff
-			color: #333
-			border: 0px
-			border-radius: 10px
-			box-shadow: 1px 1px 1px #ccc
-			float: right
-	canvas#visual
-		border-radius: 7px
-		display: block
-		clear: both
-		float: left
-		height: 160px
-		width: 764px
-		background: #f7f8ff
-		box-shadow: inset -1px -1px 7px #ddd, 1px 1px 1px #abc, 1px 1px 3px #aaa
-		margin: 10px
-	fieldset
-		line-height: 36px
-		height: 36px
-		border: 0px
-		box-shadow: inset -1px -1px 7px #ddd, 1px 1px 1px #abc, 1px 1px 3px #aaa
-		padding: 0px
-		border-radius: 7px
-		margin: 10px
-		padding-left: 36px
-		position: relative
-		vertical-align: middle
-		width: 764px
-		font-size: 0.8em
-		background: #f7f8ff
-		> *
-			display: inline-block
-			float: left
-		legend
-			margin: 0px
-			padding: 0px
-			line-height: 36px
-			font-size: 1em
-			font-weight: bold
-			position: absolute
-			left: 4px
-			top: 0px
-			width: 36px
-			text-align: center
-			img, i.fa
-				width: 36px
-				height: 36px
-				line-height: 36px
-			img
-				margin-left: 1px
-			i.fa
-				font-size: 1.6em
-				padding-top: 3px
-				&::before
-					display: inline-block
-					line-height: 36px
-					width: 36px
-					text-align: center
-		label
-			line-height: 36px
-			padding: 0px 10px
-		select, input
-			box-sizing: border-box
-			margin: 7px
-			line-height: 36px
-			border-radius: 4px
-			border: 1px solid #ccc
-			height: 24px
-			vertical-align: middle
-			outline: none
-		select
-			max-width: 152px
-		label
-			padding: 0px 8px
-		input[type="number"]
-			padding-left: 4px
-			width: 36px
-			outline: none
-		button
-			padding: 0px
-			width: 36px
-			height: 36px
-			line-height: 36px
-			text-align: center
-			border-radius: 7px
-			font-size: 1.4em
-			border: 0px
-			background: rgba(#2a68a7, 0)
-			transition: .3s
-			outline: none
-			cursor: pointer
-			&.on
-				padding-top: 1px
-				background: rgba(#2a68a7, 0.03)
-				box-shadow: inset 1px 1px 3px #abc
-			> i.fa
-				width: 36px
-				height: 36px
-				line-height: 36px
-				text-align: center
-			&.right
-				float: right
-	.channels
-		display: block
-		clear: both
-		.channel
-			width: 176px
-			display: inline-block
-			box-shadow: inset -1px -1px 7px #ddd, 1px 1px 1px #abc, 1px 1px 3px #aaa
-			border-radius: 7px
-			background: #f7f8ff
-			margin: 10px
-			button.stop
-				+ui-button(64px, 16px, 2px)
-				display: block
-				float: left
-				width: 64px
-				background: #fff
-				color: #333
-				border: 0px
-				border-radius: 100%
-				transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
-				box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ccc
-				opacity: 0.9
-				&:hover
-					box-shadow: 1px 1px 12px #aaa
-					opacity: 1
-			input.vertical
-				-webkit-appearance: none
-				width: 64px
-				height: 4px
-				background-color: #777
-				transform: rotate(-90deg)
-				margin-top: 38px
-				&::-webkit-slider-thumb
-					-webkit-appearance: none
-					background-color: #aaa
-					border: 1px solid #777
-					width: 8px
-					height: 48px
-			button.play-rec
-				+ui-button(128px, 16px, 4px)
-				display: block
-				width: 128px
-				clear: both
-				float: left
-				background: #fff
-				background-image: url('../assets/play-rec.png')
-				color: #333
-				border: 0px
-				border-radius: 100%
-				transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
-				box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ddd
-				opacity: 0.9
-				&:hover
-					box-shadow: 1px 1px 15px #aaa
-					opacity: 1
-				&.play
-					background-image: url('../assets/play-rec-play.png')
-					box-shadow: 1px 1px 10px green
-					&:hover
-						box-shadow: 1px 1px 15px green
-				&.record
-					background-image: url('../assets/play-rec-record.png')
-					box-shadow: 1px 1px 10px red
-					&:hover
-						box-shadow: 1px 1px 15px red
-				&.overdub
-					background-image: url('../assets/play-rec-overdub.png')
-					box-shadow: 1px 1px 10px #FFBF00
-					&:hover
-						box-shadow: 1px 1px 15px #FFBF00
+@import 'ui/index'

@@ -1,0 +1,79 @@
+.channels
+	display: block
+	clear: both
+	.channel
+		width: 176px
+		display: inline-block
+		box-shadow: inset -1px -1px 7px #ddd, 1px 1px 1px #abc, 1px 1px 3px #aaa
+		border-radius: 7px
+		background: #f7f8ff
+		margin: 10px
+		button.stop
+			+ui-button(64px, 16px, 2px)
+			display: block
+			float: left
+			width: 64px
+			background: #fff
+			color: #333
+			border: 0px
+			border-radius: 100%
+			transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
+			box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ccc
+			opacity: 0.9
+			&:hover
+				box-shadow: 1px 1px 12px #aaa
+				opacity: 1
+		input.vertical
+			-webkit-appearance: none
+			width: 64px
+			height: 4px
+			background-color: #777
+			transform: rotate(-90deg)
+			margin-top: 38px
+			&::-webkit-slider-thumb
+				-webkit-appearance: none
+				background-color: #aaa
+				border: 1px solid #777
+				width: 8px
+				height: 48px
+		button.play-rec
+			+ui-button(128px, 16px, 4px)
+			--size: 128px
+			--fg: #777
+			--bg: #fff
+			--pgPercentage: 0
+			--url: url('../assets/play-rec.png')
+			display: block
+			width: 128px
+			clear: both
+			float: left
+			background: #fff
+			background: var(--url), radial-gradient(closest-side, white 95%, transparent 0 100%, white 0), conic-gradient(var(--fg) calc(var(--pgPercentage) * 1%), var(--bg) 0)
+			// background-image: url('../assets/play-rec.png')
+			color: #333
+			border: 0px
+			border-radius: 100%
+			transition: box-shadow 0.3s, background 0.3s, margin 0.1s, color 0.3s, opacity 0.3s
+			box-shadow: 1px 1px 1px #abc, 1px 1px 10px #ddd
+			opacity: 0.9
+			&:hover
+				box-shadow: 1px 1px 15px #aaa
+				opacity: 1
+			&.play
+				--fg: #4BCD4B
+				--url: url('../assets/play-rec-play.png')
+				box-shadow: 1px 1px 10px green
+				&:hover
+					box-shadow: 1px 1px 15px green
+			&.record
+				--fg: red
+				--url: url('../assets/play-rec-record.png')
+				box-shadow: 1px 1px 10px red
+				&:hover
+					box-shadow: 1px 1px 15px red
+			&.overdub
+				--fg: #FFBF00
+				--url: url('../assets/play-rec-overdub.png')
+				box-shadow: 1px 1px 10px #FFBF00
+				&:hover
+					box-shadow: 1px 1px 15px #FFBF00

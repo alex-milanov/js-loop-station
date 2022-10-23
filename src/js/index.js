@@ -11,6 +11,7 @@ const {obj, arr} = require('iblokz-data');
 // util
 const a = require('./util/audio');
 window.a = a;
+const time = require('./util/time');
 
 // app
 const app = require('./util/app');
@@ -91,7 +92,10 @@ actions$
 	.subscribe(state => state$.onNext(state));
 
 // state -> ui
-const ui$ = state$.map(state => ui({state, actions}));
+// const ui$ = state$.map(state => ui({state, actions}));
+const ui$ = time.frame().withLatestFrom(state$, (t, state) => state)
+	.map(state => ui({state, actions}));
+
 vdom.patchStream(ui$, '#ui');
 
 // hooks

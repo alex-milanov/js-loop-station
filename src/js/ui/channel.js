@@ -1,6 +1,11 @@
 'use strict';
 
+const a = require('../util/audio');
+
 const {section, button, span, i, input} = require('iblokz-snabbdom-helpers');
+
+const calcProgress = (start, current, duration) =>
+	(((current - start) % duration) / duration * 100);
 
 module.exports = ({params, chan, actions}) => section('.channel', [
 	button('.stop', {
@@ -14,11 +19,15 @@ module.exports = ({params, chan, actions}) => section('.channel', [
 		props: {value: params.gain}
 	}),
 	button('.play-rec.record', {
+		style: {
+			'--pgPercentage': params.process === 'play'
+				? calcProgress(params.startedAt, a.context.currentTime, params.duration) : 0
+		},
 		class: {
 			play: params.process === 'play',
 			record: params.process === 'record',
 			overdub: params.process === 'overdub'
 		},
-		on: {click: () => actions.playRec(chan)}
+		on: {click: () => actions.playRec(chan, a.context.currentTime)}
 	}, '')
 ]);

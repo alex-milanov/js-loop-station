@@ -13,7 +13,7 @@ const rec = require('../util/recorder');
 const file = require('../util/file');
 
 const initial = {
-	on: false,
+	on: true,
 	deviceInputs: {
 		0: 'default',
 		1: 'default',
@@ -126,7 +126,7 @@ const hook = ({state$, actions}) => {
 	let recording = {};
 	let blob$ = new Rx.Subject();
 
-	const addNewSample = (channel, buffer, baseLength, quantize = false) => {
+	const addNewSample = (channel, buffer, baseLength, quantize = false, triggeredAt) => {
 		// quantize buffer
 		let length = buffer.length;
 		if (quantize) {
@@ -148,14 +148,16 @@ const hook = ({state$, actions}) => {
 		bufferSource.buffer = resizedBuffer;
 		bufferSource.loop = true;
 		bufferSource.connect(vca.through);
-		bufferSource.start();
+		bufferSource.start(triggeredAt);
 		if (!buffers[channel]) buffers[channel] = [];
 		buffers[channel].push(bufferSource);
+		actions.set(['channels', channel, 'duration'], bufferSource.buffer.duration);
 	};
 
 	[0, 1, 2, 3].map(channel =>
 		state$.distinctUntilChanged(state => state.channels[channel].process)
 			.subscribe(state => {
+				let triggeredAt = state.channels[channel].startedAt;
 				if (state.audio) {
 					if (state.channels[channel].process === 'record' || state.channels[channel].process === 'overdub') {
 						console.log(channel, rec.record, source[channel].stream);
@@ -163,7 +165,7 @@ const hook = ({state$, actions}) => {
 						recording[channel].data$
 							.flatMap(data => file.load(data, 'arrayBuffer'))
 							.flatMap(arrayBuffer => $.fromPromise(a.context.decodeAudioData(arrayBuffer)))
-							.subscribe(buffer => addNewSample(channel, buffer, state.baseLength, state.quantize));
+							.subscribe(buffer => addNewSample(channel, buffer, state.baseLength, state.quantize, triggeredAt));
 					} else if (state.channels[channel].process === 'play') {
 						if (recording[channel]) {
 							recording[channel].stop();
@@ -175,7 +177,9 @@ const hook = ({state$, actions}) => {
 							bufferSource.buffer = old.buffer;
 							bufferSource.loop = true;
 							bufferSource.connect(vca.through);
-							bufferSource.start();
+							bufferSource.start(triggeredAt);
+							actions.set(['channels', channel, 'startedAt'], a.context.currentTime);
+							console.log(bufferSource, old.buffer);
 							return bufferSource;
 						});
 					} else {
