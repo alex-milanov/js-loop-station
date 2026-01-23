@@ -5,7 +5,7 @@ const Rx = require('rx');
 const $ = Rx.Observable;
 
 const noop = () => {};
-
+/*
 const _MediaRecorder = function(stream, options, ctx) {
 	this._state = window.RecordingState.inactive;
 	this._stream = stream;
@@ -32,10 +32,10 @@ const _MediaRecorder = function(stream, options, ctx) {
 
 _MediaRecorder.prototype = Object.create(window.VorbisMediaRecorder.prototype);
 _MediaRecorder.prototype.constructor = _MediaRecorder;
-
+*/
 const record = (stream, ctx) => {
-	// let mediaRecorder = new window.MediaRecorder(stream);
-	let mediaRecorder = new _MediaRecorder(stream, {audioBitsPerSecond: 32000}, ctx);
+	let mediaRecorder = new window.MediaRecorder(stream, {audioBitsPerSecond: 32000});
+	// let mediaRecorder = new _MediaRecorder(stream, {audioBitsPerSecond: 32000}, ctx);
 	// mediaRecorder.mimeType = 'audio/ogg';
 	let chunks = [];
 	mediaRecorder.start();
