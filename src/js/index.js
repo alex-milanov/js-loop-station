@@ -91,17 +91,48 @@ actions$
 	.map(state => (console.log(state), state))
 	.subscribe(state => state$.onNext(state));
 
+// Request permissions on page load - browser will show native prompts
+// Audio context resume
+if (a.context.state === 'suspended') {
+	a.context.resume().catch(err => {
+		console.error('Failed to resume audio context:', err);
+	});
+}
+
+// MIDI access
+if (navigator.requestMIDIAccess) {
+	navigator.requestMIDIAccess().catch(err => {
+		console.error('Failed to request MIDI access:', err);
+	});
+}
+
+// Resume audio context on first user interaction (required by modern browsers)
+const resumeAudioOnInteraction = () => {
+	if (a.context.state === 'suspended') {
+		a.context.resume().then(() => {
+			console.log('Audio context resumed');
+		}).catch(err => {
+			console.error('Failed to resume audio context:', err);
+		});
+	}
+	document.removeEventListener('click', resumeAudioOnInteraction);
+	document.removeEventListener('touchstart', resumeAudioOnInteraction);
+};
+document.addEventListener('click', resumeAudioOnInteraction, { once: true });
+document.addEventListener('touchstart', resumeAudioOnInteraction, { once: true });
+
 // state -> ui
 // const ui$ = state$.map(state => ui({state, actions}));
 const ui$ = time.frame().withLatestFrom(state$, (t, state) => state)
 	.map(state => ui({state, actions}));
 
-vdom.patchStream(ui$, '#ui');
-
 // hooks
 visuals.hook({state$, actions});
 audio.hook({state$, actions});
 midi.hook({state$, actions});
+
+// patch stream to dom
+vdom.patchStream(ui$, '#ui');
 
 // livereload impl.
 if (module.hot) {

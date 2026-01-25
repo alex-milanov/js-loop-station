@@ -2,17 +2,10 @@
   "name": "js-loop-station",
   "version": "1.1.0",
   "description": "",
-  "main": "index.js",
+  "source": "src/index.pug",
   "scripts": {
-    "build": "npm run build:assets && npm run build:js && npm run build:sass",
-    "build:js": "browserify src/js/index.js -o dist/js/app.js",
-    "build:sass": "node-sass --include-path=$(node bin/sass-paths.js) src/sass/style.sass dist/css/style.css",
-    "build:assets": "node bin/move-assets.js",
-    "watch": "npm run watch:js & npm run watch:sass & npm run livereload",
-    "watch:js": "watchify -p browserify-hmr src/js/index.js -o dist/js/app.js",
-    "watch:sass": "npm run build:sass -- --watch src/sass/**/*",
-    "livereload": "livereload dist/**/*.css -d",
-    "start": "npm run build && serve -l 3000 dist & npm run watch"
+    "build": "parcel build --public-url /js-loop-station/",
+    "start": "parcel"
   },
   "author": "",
   "license": "ISC",
@@ -31,14 +24,22 @@
     "wavesurfer.js": "^2.0.5"
   },
   "devDependencies": {
-    "browserify": "^13.1.1",
-    "browserify-hmr": "^0.3.5",
+    "@parcel/config-default": "^2.12.0",
+    "@parcel/transformer-pug": "^2.12.0",
+    "@parcel/transformer-sass": "^2.12.0",
+    "assert": "^2.1.0",
+    "buffer": "^5.5.0||^6.0.0",
     "eslint": "^3.12.2",
     "eslint-config-google": "^0.6.0",
-    "fs-extra": "^1.0.0",
-    "livereload": "^0.6.0",
-    "node-sass": "^7.0.3",
-    "serve": "^14.0.1",
-    "watchify": "^3.8.0"
-  }
+    "os-browserify": "^0.3.0",
+    "parcel": "^2.12.0",
+    "parcel-reporter-static-files-copy": "^1.5.3",
+    "process": "^0.11.10"
+  },
+  "staticFiles": [
+    {
+      "staticPath": "src/assets",
+      "staticOutPath": "assets"
+    }
+  ]
 }
